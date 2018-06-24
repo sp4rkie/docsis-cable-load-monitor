@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 CABLE_MODEM=192.168.100.1
 
