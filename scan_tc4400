@@ -1,0 +1,47 @@
+#/bin/sh
+
+CABLE_MODEM=192.168.100.1
+
+for i in \
+http://$CABLE_MODEM/info.html \
+http://$CABLE_MODEM/arpview.cmd \
+http://$CABLE_MODEM/cmswinfo.html \
+http://$CABLE_MODEM/cmconnectionstatus.html 
+do
+wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password='bEn2o#US9s' $i -O - |
+awk '{
+    if (!HEAD++) {
+        print "------------------ [ '$i' ] ------------------"
+    }
+    if (match($0, "<script")) {
+        ++IGNORE
+    } else if (IGNORE) {
+        if (match($0, "/script?")) {
+            IGNORE = 0
+        }
+    } else {
+        print
+    }
+}'
+done | 
+lynx -nolist -width 300 -dump -stdin > /tmp/scan_tc4400_raw
+
+awk '{
+    # patch fields to ignore
+    if ($3 == "Locked" && match($11, "^[0-9.]+$")) $11 = "c_1"  # up/downstream
+    if ($3 == "Locked" && match($13, "^[0-9.]+$")) $13 = "c_2"  # downstream
+    if ($3 == "Locked" && match($16, "^[0-9]+$")) $16 = "c_3"   # downstream
+    if ($3 == "Locked" && match($17, "^[0-9]+$")) $17 = "c_4"   # downstream
+    if (match($0, "Current System Time:")) $0 = "c_5"
+    if (match($0, "IPv4=.*D:.*H:.*M:.*S:")) $0 = "c_6"
+    if (match($0, "REFRESH.*file://.*html")) $0 = "c_7"
+    if (match($0, "Uptime:   ")) $0 = "c_8"
+    if (match($0, "Systime:  ")) $0 = "c_9"
+
+    print
+    
+'} < /tmp/scan_tc4400_raw > /tmp/scan_tc4400_new
+
+[ -s /tmp/scan_tc4400_old ] && diff /tmp/scan_tc4400_old /tmp/scan_tc4400_new
+mv /tmp/scan_tc4400_new /tmp/scan_tc4400_old
+
