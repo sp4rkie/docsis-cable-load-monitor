@@ -1,0 +1,166 @@
+#!/bin/sh
+
+#
+# DOCSIS cable load monitor 
+#
+
+export LD_PRELOAD=/opt/lib/libmediaclient.so
+
+cat > $0_$$.awk << !
+
+# plse DO NOT TAMPER with this string
+# $Header: DocsisLoadMonitor 0.1 2009/12/30 $
+func setup( \
+    )
+{
+    CLARGS = "$0|$1|$2|$3|$4|$5|$6|$7|$8|$9|${10}|${11}|${12}|${13}|${14}|${15}|${16}|${17}|${18}|${19}|${20}"
+
+    # avoid dangling include files. incore inode still exists
+    system("rm $0_$$.awk")
+
+    # take care of shell expansion (if security is an issue)
+    setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`hostname`", "$R_")
+    PRP(CLARGS "\n")
+
+    RRD_BASE = "CableLoadMonitor.rrd"
+}
+
+func exit_(msg \
+    )
+{
+    PRE(msg)
+    PRE("exiting...")
+    ++ERR; exit
+}
+
+func retrieve_down_freqs_from_TC4400( \
+    ignore, line, CMD, CMD1, a)
+{
+    CABLE_MODEM = "192.168.100.1"
+    URL = "http://" CABLE_MODEM "/cmconnectionstatus.html"
+
+if (0) {
+    CMD = "wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
+    CMD1 = "lynx -nolist -width 300 -dump -stdin"
+    while ((line = ex_line(CMD)) != -1) {
+        if (match(line, "<script")) {
+            ++ignore
+        } else if (ignore) {
+            if (match(line, "/script?")) {
+                ignore = 0
+            }
+        } else {
+            print line |& CMD1
+        }
+    }
+    close(CMD1, "to")
+    while (CMD1 |& getline line > 0) {
+        if (match(line, "Locked +SC-QAM +Downstream +Bonded +([0-9]+) ", a)) {
+            FREQ[FREQ_CNT++] = a[1]
+        }
+    }
+    close(CMD1)
+} else {
+    FREQ[FREQ_CNT++] = "530000000"
+    FREQ[FREQ_CNT++] = "538000000"
+    FREQ[FREQ_CNT++] = "546000000"
+    FREQ[FREQ_CNT++] = "554000000"
+    FREQ[FREQ_CNT++] = "562000000"
+    FREQ[FREQ_CNT++] = "570000000"
+    FREQ[FREQ_CNT++] = "578000000"
+    FREQ[FREQ_CNT++] = "586000000"
+    FREQ[FREQ_CNT++] = "594000000"
+    FREQ[FREQ_CNT++] = "602000000"
+    FREQ[FREQ_CNT++] = "610000000"
+    FREQ[FREQ_CNT++] = "618000000"
+    FREQ[FREQ_CNT++] = "626000000"
+    FREQ[FREQ_CNT++] = "634000000"
+    FREQ[FREQ_CNT++] = "642000000"
+    FREQ[FREQ_CNT++] = "650000000"
+}
+}
+
+func watch_the_scenery( \
+    i, k, LAST, add, pre, post, start, STR, STR1, SUM, a)
+{
+    for (i = 0; i < FREQ_CNT; ++i) {
+        PRF(FREQ[i] / 1000000 " ")
+        LAST[i] = 0
+    }
+    PR("\n")
+while (1) {
+    start = strftime("%s")
+    for (i = 0; i < FREQ_CNT; ++i) {
+        ex("dvbtune -f " FREQ[i] " -s 6952 -qam 256")
+
+        pre = strftime("%s")
+        # in case of very small values limit the measurement interval to something useful
+        ex("timeout 2 dvbsnoop -s bandwidth 8190 -n 400", 0, "^## PID:.*Avrg: +([^ ]+) ", a)
+        post = strftime("%s")
+        add = "A[" post - pre "] "
+
+        LAST[i] = int(a[1] + 0.5)
+        SUM = 0
+        STR = "rrdtool update " RRD_BASE " N"
+        STR1 = ""
+        for (k = 0; k < FREQ_CNT; ++k) {
+            SUM = SUM + LAST[k]
+            STR = STR ":" LAST[k]
+            STR1 = STR1 sprintf("%6s", LAST[k])
+        }
+        STR = STR ":" SUM
+        STR1 = STR1 sprintf("%7s", SUM)
+PR(strftime("%T: ") sprintf("%2d: %s %5s ", i, add, LAST[i]) STR1)
+        ex(STR, 2)
+    }
+PR(strftime("%T: ") "scan time: " sprintf("%4s ", strftime("%s") - start) STR1)
+}
+}
+
+func usage( \
+    locked, line, a)
+{
+    PR("Usage: " PRGBNAME)
+    while ((line = ex_line("cat " PRGNAME)) != -1) {
+        if (locked) {
+            if (match(line, "match[^,]+, \"(.+)\"[^\"]+# (.*)$", a)) {
+                PR(sprintf("  %-40s - %s", a[1], a[2]))
+            }
+        } else {
+            if (match(line, "^func process_cmdline")) ++locked
+        }
+    }
+}
+
+func process_cmdline( \
+    )
+{
+    if (match("$*", "help$")) { # print this help and exit
+        usage()
+    } else {
+        retrieve_down_freqs_from_TC4400()
+        watch_the_scenery()
+    }
+}
+
+BEGIN {
+    QUIET = 1
+    setup()
+    process_cmdline()
+    exit
+}
+
+END { 
+    cleanup()
+    PRP("\n" PRGBNAME " " "exits with: " (ERR ? ERR : 0) " " "error(s)")
+    PRP("====== [" sprintf(" %5d ", PROCINFO["pid"]) "] program stop  [" strftime() "] on " HOSTNAME " ======")
+    close(PROTOCOL)
+    exit ERR
+}
+
+!
+
+[ `id -u` -eq 0 ] || PP='pp -q'
+[ -t 0 ] && STDIN="< /dev/null"
+eval exec $PP awk -f l5.awklib -f $0_$$.awk $STDIN 2>&1
+

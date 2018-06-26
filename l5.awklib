@@ -1,0 +1,622 @@
+#
+# --- awk library VERSION 0.0.5 (as of 2017_11_06) ---
+#
+# unfortunately some chars must be escaped differently
+# depending on awk or shell use e.g. "'" must be escaped
+# for shell but may not be escaped in awk.
+#
+# library version of escape_chars():
+#
+# MODE 0: escape those: *()[]?.+\^$|         with \   [ match use ]
+# MODE 1: escape      :             %        with %   [ printf use ]
+# MODE 2: escape      : *()[]?  \  | '&<>S   with \   [ shell use ]
+#
+func escape_chars(str, mode \
+    )
+{
+    if (mode == 0) {
+        return gensub("(*|\\(|\\)|\\[|]|?|\\.|+|\\\\|\\^|\\$|\\|)", "\\\\\\1", "g", str)
+    }
+    if (mode == 1) {
+        return gensub("(%)", "%\\1", "g", str)
+    }
+    if (mode == 2) {
+        return gensub("(*|\\(|\\)|\\[|]|?|\\\\|\\||'|&|<|>| )", "\\\\\\1", "g", str)
+    }
+}
+
+func _e1(str)
+{
+    return escape_chars(str, 2)
+}
+
+func _e2(str)
+{
+    return _e1(_e1(str))
+}
+
+func _e3(str)
+{
+    return _e1(_e2(str))
+}
+
+func _e7(str)
+{
+    return _e1(_e3(_e3(str)))
+}
+
+func e1(str)
+{
+    return "'" _e1(str) "'"
+}
+
+func e2(str)
+{
+    return "'" _e2(str) "'"
+}
+
+func e3(str)
+{
+    return "'" _e3(str) "'"
+}
+
+func e7(str)
+{
+    return "'" _e7(str) "'"
+}
+
+func abs(a \
+    )
+{
+    return a >= 0 ? a : -a
+}
+
+func min(a, b \
+    )
+{
+    return a <= b ? a : b;
+}
+
+func max(a, b \
+    )
+{
+    return a >= b ? a : b;
+}
+
+func _simple_cmd(CMD, \
+    line)
+{
+    CMD = CMD " 2>&1"
+    CMD | getline line; close(CMD)
+    return line
+}
+
+#
+# $shell variables cannot be addressed here.
+# you must forward them from main file via function args.
+# 
+func _PRF(quiet, a, b, c, d, e, f, g, h, \
+    arr, brr, CMD, line)
+{
+    # logfile rotation
+    if (!(PROTOCOL_LINE_CNT++ % 10000)) {
+        close(PROTOCOL)
+        if (split(_simple_cmd("ls -l --time-style=long-iso " PROTOCOL), arr) == 8 \
+         && match(arr[5], "^[0-9]+$") \
+         && arr[5] > 1000000) {
+
+            CMD = "ls -r " PROTOCOL "* 2>&1"
+            while (CMD | getline line > 0) {
+                if (match(line, "^" PROTOCOL "\\.([0-9])(|\\.gz)$", brr)) {
+                    if (brr[1] == 9) {
+
+                        # these are lost
+                        _simple_cmd("rm " line)
+                    } else {
+                        _simple_cmd("mv " line " " PROTOCOL "." brr[1] + 1 brr[2])
+                    }
+                }
+            }
+            close(CMD)
+            print "+++ ROTATING +++" >> PROTOCOL; close(PROTOCOL)
+            _simple_cmd("mv " PROTOCOL " " PROTOCOL ".0")
+        }
+    }
+
+    if (!quiet) printf a, b, c, d, e, f, g, h
+    printf a, b, c, d, e, f, g, h >> PROTOCOL
+    fflush(PROTOCOL)
+}
+
+func _PR(quiet, a \
+    )
+{
+    _PRF(quiet, "%s\n", a)
+}
+
+func PRFP(a, b, c, d, e, f, g, h \
+    )
+{
+    _PRF(QUIET, a, b, c, d, e, f, g, h)
+}
+
+func PRP(a \
+    )
+{
+    _PR(QUIET, a)
+}
+
+func PRF(a, b, c, d, e, f, g, h \
+    )
+{
+    _PRF(0, a, b, c, d, e, f, g, h)
+}
+
+func PR(a \
+    )
+{
+    _PR(0, a)
+}
+
+func PRE(a \
+    )
+{
+    _PR(QUIET, a)
+    print a > "/dev/stderr"
+}
+
+func systemPR(cmd \
+    )
+{
+    PR(cmd)
+    system(cmd)
+}
+
+func systemPRP(cmd \
+    )
+{
+    PRP(cmd)
+    system(cmd)
+}
+
+#
+# operation modes
+#
+#    what: how: output:
+#
+#    0     0    content sorted
+#    1     0    indices sorted
+#    0     1    content native
+#    1     1    indices native
+#    0     2    content random
+#    1     2    indices random
+#
+func get_sorted(arr, what, how, \
+    CMD, i)
+{
+    if (!GET_SORTED_CURRENT) {
+        if (how == 1) {
+            delete GET_SORTED_ARR
+            GET_SORTED_NUM = 1   # asort compat requires start at 1
+            if (what) {
+                for (i in arr) GET_SORTED_ARR[GET_SORTED_NUM++] = i
+            } else {
+                for (i in arr) GET_SORTED_ARR[GET_SORTED_NUM++] = arr[i]
+            }
+            --GET_SORTED_NUM
+        } else if (how == 0 || how == 2) {
+            system("rm -f " SORT_FILE0)
+            if (what) {
+                for (i in arr) print i > SORT_FILE0
+            } else {
+                for (i in arr) print arr[i] > SORT_FILE0
+            }
+            close(SORT_FILE0)
+
+            delete GET_SORTED_ARR
+            GET_SORTED_NUM = 1   # asort compat requires start at 1
+            if (how == 0) {
+                CMD = "sort   -g " SORT_FILE0 " 2> /dev/null" # dispose err msg if array empty
+            } else {
+                CMD = "unsort -r " SORT_FILE0 " 2> /dev/null" # dispose err msg if array empty
+            }
+            while (CMD | getline i > 0) {
+                GET_SORTED_ARR[GET_SORTED_NUM++] = i
+            }
+            close(CMD)
+            system("rm -f " SORT_FILE0)
+            --GET_SORTED_NUM
+        }
+    }
+    if (++GET_SORTED_CURRENT <= GET_SORTED_NUM) {
+        return GET_SORTED_ARR[GET_SORTED_CURRENT]
+    } else {
+        GET_SORTED_CURRENT = 0
+        return -1
+    }
+}
+
+# take care to read ALL input
+# also in case of error parsing
+# otherwise processes may hang
+func ex_line(cmd,
+    CMD, out, ret)
+{
+    CMD = "{ " cmd "; } 2>&1"
+    if (!___IS_OPEN[CMD]) {
+        PRP("ex_line open: " CMD)
+        ++___IS_OPEN[CMD]
+    }
+    if (CMD | getline out <= 0) {
+        PRP("ex_line close: " CMD)
+        ___IS_OPEN[CMD] = 0
+        close(CMD)
+        ret = -1
+    }
+    return ret == -1 ? ret : out
+}
+
+# 
+# usage samples:
+#
+# ex("date")
+# ex("date", dbg)
+# ex("date", dbg, "(Mon|Thu).* ([0-9]+)$")
+# ex("date", dbg, "(Mon|Thu).* ([0-9]+)$", ret)
+#
+# dbg bit msk:
+#   xxxx xxx0  -  cmd to PROTOCOL (default)
+#   xxxx xxx1  -  cmd to SCREEN + PROTOCOL
+#
+#   xxxx x00x  -  output to PROTOCOL (default)
+#   xxxx x01x  -  output to SCREEN + PROTOCOL 
+#   xxxx x1xx  -  output suppressed
+#
+#   xxxx 0xxx  -  match to PROTOCOL (default)
+#   xxxx 1xxx  -  match to SCREEN + PROTOCOL 
+#
+#   xxx0 xxxx  -  don't check zero output (default)
+#   xxx1 xxxx  -  exit if any output
+#
+#   xx0x xxxx  -  don't suppress 'scanning/ no match' msgs (default)
+#   xx1x xxxx  -  avoid clutter
+#
+#   0xxx xxxx  -  read data from pipe (default)
+#   1xxx xxxx  -  read data from file==cmd directly
+#
+func ex(cmd, verb, scantext, a, \
+  CMD, line)
+{
+  delete a
+
+  EX_V_B0 = int(verb /   1) % 2
+  EX_V_B1 = int(verb /   2) % 2
+  EX_V_B2 = int(verb /   4) % 2
+  EX_V_B3 = int(verb /   8) % 2
+  EX_V_B4 = int(verb /  16) % 2
+  EX_V_B5 = int(verb /  32) % 2
+  EX_V_B7 = int(verb / 128) % 2
+
+  CMD = ROOTPATH "/bin/bash -c '" cmd "' 2>&1"
+  if (EX_V_B0) PR("CMD: " cmd); else PRP("CMD: " CMD)
+  if (EX_V_B4) {
+      PRP("checking for ZERO output")
+      scantext = "^(.*)$"
+  }
+  if (!EX_V_B5 && scantext) PRP("scanning output for: <" scantext ">")
+  if (EX_V_B7) {
+      while (getline line < cmd > 0) {
+          if (EX_V_B2) {
+              # any output suppressed
+          } else if (EX_V_B1) {
+              PR(line)
+          } else {
+              PRP(line)
+          }
+          if (scantext && !a[1] && match(line, scantext, a)) {
+              a[1] = a[1] ""                  # make "if (!a[1])" behave as expected
+              if (EX_V_B3) PR("first match: <" a[1] ">"); else PRP("first match: <" a[1] ">")
+          }
+      }
+      close(cmd)
+  } else {
+      while (CMD | getline line > 0) {
+          if (EX_V_B2) {
+              # any output suppressed
+          } else if (EX_V_B1) {
+              PR(line)
+          } else {
+              PRP(line)
+          }
+          if (scantext && !a[1] && match(line, scantext, a)) {
+              a[1] = a[1] ""                  # make "if (!a[1])" behave as expected
+              if (EX_V_B3) PR("first match: <" a[1] ">"); else PRP("first match: <" a[1] ">")
+          }
+      }
+      close(CMD)
+  }
+  if (!EX_V_B5 && scantext && !a[1]) {
+      if (EX_V_B3) PR("no match"); else PRP("no match")
+  }
+  if (EX_V_B4 && a[1]) {
+      PR(a[1])
+      PR("ERROR: unexpected output received, exiting")
+      ++ERR; exit
+  }
+  return a[1]
+}
+
+func get_next_arg(res, \
+    char)
+{
+    if (!ARGV_pos) {
+        ARGV_pos = 2
+        STR_pos = 1
+    }
+    if (ARGV_pos < _ARGC) {
+        if (STR_pos <= length(_ARGV[ARGV_pos])) {
+            char = substr(_ARGV[ARGV_pos], STR_pos, 1)
+            if (STR_pos == 1 && char == "-") {
+                ++STR_pos
+                return get_next_arg(res)
+            } else if (STR_pos == 1 && char != "-") {
+                res[0] = "FILE"
+                res[1] = _ARGV[ARGV_pos]
+                STR_pos = 1
+                ++ARGV_pos
+                return "FILE"
+            } else {
+                res[0] = "CHAR"
+                res[1] = char
+                ++STR_pos
+                return "CHAR"
+            }
+        } else {
+            STR_pos = 1
+            ++ARGV_pos
+            return get_next_arg(res)
+        }
+    }
+    res[0] = ""
+    res[1] = ""
+    return "EOF"
+}
+
+# experimental
+func print_hashes( \
+    num)
+{
+    # scale 0 - 100% to 0 - length(FULL_RANGE)
+    num = int(FILL * length(FULL_RANGE) / 100)
+
+    # if possible consider endcap
+    if (num) num -= length(">")
+    printf "|" FULL_RANGE "||"
+    while (num--) {
+        printf "="
+    }
+    printf ">"
+}
+
+func clr_hashes( \
+    )
+{
+    printf " " FULL_RANGE " "
+} 
+
+func sendmail(subj, data, sms, verb, addr_to \
+    )
+{
+    sendmail1(0, subj, data, 0, 0, addr_to, sms, verb)
+}
+
+func calc_date_from_epoch(a, \
+    CMD, line)
+{
+    CMD = "date -d \"1970-01-01 UTC " a " sec\" \"+%T %F\""
+    CMD | getline line
+    close(CMD)
+    return line 
+}
+
+func check_alive(mach \
+    )
+{   
+    return ex("ping -c 1 -W 1 " mach, 4, "(1 packets transmitted, 1 received, 0% packet loss, time)")
+}
+
+func sys_fn(ext, num \
+    )
+{
+    return SYS_PFX num "/" ext
+}
+
+func sys_get(var, num, \
+    a, line)
+{
+    getline line < sys_fn(var, num); close(sys_fn(var, num))
+    if (match(line, " ?([^ ]+)$", a)) {
+        if (VERB) PRP(sys_fn(var, num) " -> " a[1])
+    } else {
+        PR("ERROR: " sys_fn(var, num) " -> variable has no value, exiting")
+        return
+    }
+    return a[1]
+}
+
+func sys_set(var, num, val \
+    )
+{
+    if (sys_get(var, num) == val) {
+        if (VERB) PRP(sys_fn(var, num) " == " val)
+    } else {
+        PR(sys_fn(var, num) " <- " val " [ NEW ]")
+        print val > sys_fn(var, num); close(sys_fn(var, num))
+        if (sys_get(var, num) != val) {
+            PR("ERROR: " sys_fn(var, num) " <- variable not settable, exiting")
+            return
+        }
+    }
+}
+
+# move machine specific cfg files in place once after install
+func one_shot_mv(file, mach \
+    )
+{
+    if (mach) ex("[ -e " file "." mach " ] && /bin/mv -v " file "." mach " " file)
+}
+
+# (de)activate machine specific RC scripts
+func SXX_activate(service, on, \
+    line, a)
+{
+    while ((line = ex_line("ls /etc/rc[0-9S].d/[" (on ? "sk" : "SK") "][0-9][0-9]" service)) != -1) {
+        if (match(line, "^(/etc/rc[0-9S].d/)([skSK])([0-9][0-9]" service ")$", a)) {
+            ex("mv " a[1] a[2] a[3] " " a[1] (on ? toupper(a[2]) : tolower(a[2])) a[3], 16)
+        }
+    }
+}
+
+# (de)activate machine specific lines in cfg files
+func activate(file, trigger, on, \
+    found, ret, line, a)
+{
+    # avoid creating soft linked files that copy on themselves
+    ex("rm -f " file ".bk; cp -p " file " " file ".bk")
+    while (getline line < (file ".bk") > 0) {
+        if (match(line, trigger)) ++found
+        if (on) {
+            if (match(line, "^#(.*" trigger ".*)$", a)) {
+                PRP(line " ==> " a[1])
+                print a[1] > file
+                ++ret
+            } else {
+                print line > file
+            }
+        } else {
+#            if (match(line, "^([^#].*" trigger ".*)$", a)) {
+            if (match(line, "^((|[^#].*)" trigger ".*)$", a)) {
+                PRP(line " ==> " "#" a[1])
+                print "#" a[1] > file
+                ++ret
+            } else {
+                print line > file
+            }
+        }
+    }
+    close(file)
+    close(file ".bk")
+    if (!found) PRP("<" trigger ">" " not found")
+    else if (!ret) PRP("<" trigger ">" " already " (on ? "" : "de") "activated")
+    return ret
+}
+
+# query current status
+func query(file, trigger, \
+    ret, line, a)
+{
+    while (getline line < file > 0) {
+        if (match(line, "^((|[^#].*)" trigger ".*)$", a)) {
+            ++ret
+        }
+    }
+    close(file)
+    PRP(trigger " is " (ret ? "" : "de") "activated")
+    return ret
+}
+
+# like gsub(r, s [, t]) but operates on file f not string t
+func gfile(r, s, f, \
+    line)
+{
+    PRP("gfile: replace <" r "> by <" s ">")
+    # avoid creating soft linked files that copy on themselves
+    ex("rm -f " f ".bk; cp -p " f " " f ".bk")
+    while (getline line < (f ".bk") > 0) {
+        print gensub(r, s, "g", line) > f
+    }
+    close(f)
+    close(f ".bk")
+}
+
+func lkp(cnt \
+    )
+{
+    return substr(LKP, 1 + int(cnt / length(LKP)) % length(LKP), 1) \
+           substr(LKP, 1 + cnt % length(LKP), 1)
+}
+
+func print_progress(cmd, str, \
+    BKGCMD, CMD, line, a, b, cnt, sgn)
+{
+    sgn[0] = "|"
+    sgn[1] = "/"
+    sgn[2] = "-"
+    sgn[3] = "\\"
+    CMD = "cat /proc/" PROCINFO["pid"] "/stat"; CMD | getline line; close(CMD)
+    split(line, a);
+    BKGCMD = "echo $$; " cmd
+    BKGCMD | getline line
+    CMD = "cat /proc/" line "/stat 2>&1"
+    while (1) {
+        CMD | getline line; close(CMD)
+        split(line, b)
+        if (match(b[5], "^[0-9]+$") && a[5] == b[5]) {
+            printf str " [ " sgn[cnt++ % 4] " ]"
+        } else {
+            break
+        }
+        "sleep .5" | getline line; close("sleep .5")
+    }
+    print str " [ done ]"
+    return BKGCMD
+}
+
+func cleanup( \
+    )
+{
+    system("rm -f " TMP_FILE "*")
+}
+
+func setup_lib(argc, argv, procnum, pwd, hostname, is_android, \
+    t0, i)
+{
+    ERR = 0
+    _ARGC = argc + 2
+    split(argv, _ARGV, "|")
+
+    # shift down for compatibility with
+    # C-style (not sh-style) ARGC ARGV[]
+    for (i = 0; i < _ARGC; ++i) {
+       _ARGV[i] = _ARGV[i + 1]
+    }
+    delete _ARGV[i]
+
+    PRGNAME = _ARGV[1]
+    match(PRGNAME, "^(.*/|)([^/]+)$", t0)
+    # effectively [ /data/data/com.termux/files/usr ] on android and [ ] otherwise
+    ROOTPATH = is_android
+    INSTPATH = t0[1]
+    PRGBNAME = t0[2]
+    PROTOCOL = PRGNAME ".log"
+    CURRPATH = pwd "/"
+    HOSTNAME = hostname
+    INSTPATH = match(INSTPATH, "^(./|)$") ? CURRPATH : INSTPATH
+
+    # charset to build 2 digit prefix, currently base 62
+    LKP = "0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ"
+
+    TMP_DIR = ROOTPATH "/tmp"
+    TMP_FILE = TMP_DIR "/tmp." procnum "."
+    SORT_FILE0 =  TMP_FILE "S0"
+    SORT_FILE1 =  TMP_FILE "S1"
+    UNSORT_FILE = TMP_FILE "U0"
+
+    TMP_FILE0 = TMP_FILE "0"
+    TMP_FILE1 = TMP_FILE "1"
+
+    PRP("====== [" sprintf(" %5d ", PROCINFO["pid"]) "] program start [" strftime() "] on " HOSTNAME " ======")
+    cleanup()
+}
+# --- library end ---
+
