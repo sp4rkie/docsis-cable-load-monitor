@@ -3,13 +3,15 @@
 #
 # DOCSIS cable load monitor 
 #
+# tool to monitor downstream load on docsis cable networks
+#
+# https://github.com/sp4rkie/docsis-cable-load-monitor
+#
 
 export LD_PRELOAD=/opt/lib/libmediaclient.so
 
 cat > $0_$$.awk << !
 
-# plse DO NOT TAMPER with this string
-# $Header: DocsisLoadMonitor 0.1 2009/12/30 $
 func setup( \
     )
 {
@@ -22,7 +24,26 @@ func setup( \
     setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`hostname`", "$R_")
     PRP(CLARGS "\n")
 
-    RRD_BASE = "CableLoadMonitor.rrd"
+    CABLE_MODEM_IP = "192.168.100.1"
+
+    RRDBASE = "CableLoadMonitor.rrd"
+    RRDGRAPH = "CableLoadMonitor.png"
+    RRDGRAPH_TMP = RRDGRAPH "_"
+
+    RDDGRAPH_WIDTH = 1500 # results in 1581x1111
+    RDDGRAPH_HEIGHT = 800
+
+    RDDGRAPH_HISTSIZE = 100
+    RDDGRAPH_HISTSIZE = 300
+    RDDGRAPH_HISTSIZE = 500
+    RDDGRAPH_HISTSIZE = 700
+    RDDGRAPH_HISTSIZE = 1000
+    RDDGRAPH_HISTSIZE = 2000
+    #RDDGRAPH_HISTSIZE = 3600
+    #RDDGRAPH_HISTSIZE = 7000
+    #RDDGRAPH_HISTSIZE = 16000
+    #RDDGRAPH_HISTSIZE = 30000
+    #RDDGRAPH_HISTSIZE = 86400
 }
 
 func exit_(msg \
@@ -33,16 +54,18 @@ func exit_(msg \
     ++ERR; exit
 }
 
-func retrieve_down_freqs_from_TC4400( \
-    ignore, line, CMD, CMD1, a)
+#
+# specific to TC4400 only ATM
+#
+func retrieve_down_freqs( \
+    URL, ignore, line, WGET, LYNX, i, a)
 {
-    CABLE_MODEM = "192.168.100.1"
-    URL = "http://" CABLE_MODEM "/cmconnectionstatus.html"
+    URL = "http://" CABLE_MODEM_IP "/cmconnectionstatus.html"
 
 if (0) {
-    CMD = "wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
-    CMD1 = "lynx -nolist -width 300 -dump -stdin"
-    while ((line = ex_line(CMD)) != -1) {
+    WGET = "wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
+    LYNX = "lynx -nolist -width 300 -dump -stdin"
+    while ((line = ex_line(WGET)) != -1) {
         if (match(line, "<script")) {
             ++ignore
         } else if (ignore) {
@@ -50,16 +73,16 @@ if (0) {
                 ignore = 0
             }
         } else {
-            print line |& CMD1
+            print line |& LYNX
         }
     }
-    close(CMD1, "to")
-    while (CMD1 |& getline line > 0) {
+    close(LYNX, "to")
+    while (LYNX |& getline line > 0) {
         if (match(line, "Locked +SC-QAM +Downstream +Bonded +([0-9]+) ", a)) {
             FREQ[FREQ_CNT++] = a[1]
         }
     }
-    close(CMD1)
+    close(LYNX)
 } else {
     FREQ[FREQ_CNT++] = "530000000"
     FREQ[FREQ_CNT++] = "538000000"
@@ -78,43 +101,96 @@ if (0) {
     FREQ[FREQ_CNT++] = "642000000"
     FREQ[FREQ_CNT++] = "650000000"
 }
-}
-
-func watch_the_scenery( \
-    i, k, LAST, add, pre, post, start, STR, STR1, SUM, a)
-{
+    PRF("scanned freqs: ")
     for (i = 0; i < FREQ_CNT; ++i) {
         PRF(FREQ[i] / 1000000 " ")
-        LAST[i] = 0
+        BWIDTH_OF[i] = 0
     }
     PR("\n")
-while (1) {
-    start = strftime("%s")
+}
+
+func assemble_rrdcreate_cmd( \
+    )
+{
+
+}
+
+func assemble_rrdgraph_cmd( \
+    CMD, i)
+{
+    CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG --lower-limit 0"                                                      " \\\\\n" \
+          "--title=\"Graph generated at \`date\`\""                                                                     " \\\\\n" \
+          "-w " RDDGRAPH_WIDTH " -h " RDDGRAPH_HEIGHT " --end now --start end-" RDDGRAPH_HISTSIZE "s"                   " \\\\\n" 
+    CMD = CMD                                                                                                           " \\\\\n"
+    for (i = 0; i < FREQ_CNT; ++i) {
+        CMD = CMD sprintf("DEF:f%02d=" RRDBASE ":f%02d:AVERAGE", i, i)                                                 " \\\\\n" 
+    }
+    CMD = CMD sprintf("DEF:sum=" RRDBASE ":sum:AVERAGE", i, i)                                                         " \\\\\n" 
+    CMD = CMD                                                                                                           " \\\\\n"
+    for (i = 0; i < FREQ_CNT; ++i) {
+        if (i < FREQ_CNT / 2) {
+            CMD = CMD sprintf("\"LINE:f%02d#ff0000:%d\"", i, FREQ[i] / 1000000)                                         " \\\\\n" 
+        } else {
+            CMD = CMD sprintf("\"LINE:f%02d#0000ff:%d\"", i, FREQ[i] / 1000000)                                         " \\\\\n" 
+        }
+    }
+    CMD = CMD                                                                                                           " \\\\\n"
+    CMD = CMD "\"LINE:sum#00ff00:sum\\\l\""                                                                             " \\\\\n"
+    CMD = CMD                                                                                                           " \\\\\n"
+    for (i = 0; i < FREQ_CNT; ++i) {
+        CMD = CMD sprintf("\"GPRINT:f%02d:LAST:%d last\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                        " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                         " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                             " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i] / 1000000)                         " \\\\\n"
+    }
+    CMD = CMD sprintf("\"GPRINT:sum:LAST:sum last\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                             " \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                               " \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                                   " \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i] / 1000000)                              #" \\\\\n"
+
+    RRDGRAPH_CMD = CMD
+}
+
+func scan_down_channels( \
+    RDD_UPD_STR, BWIDTH_SUM, a, i, k)
+{
+    PRF(strftime("%T: "))
     for (i = 0; i < FREQ_CNT; ++i) {
         ex("dvbtune -f " FREQ[i] " -s 6952 -qam 256")
 
-        pre = strftime("%s")
-        # in case of very small values limit the measurement interval to something useful
-        ex("timeout 2 dvbsnoop -s bandwidth 8190 -n 400", 0, "^## PID:.*Avrg: +([^ ]+) ", a)
-        post = strftime("%s")
-        add = "A[" post - pre "] "
-
-        LAST[i] = int(a[1] + 0.5)
-        SUM = 0
-        STR = "rrdtool update " RRD_BASE " N"
-        STR1 = ""
+        #
+        # in case of very small bandwidth values limit the measurement 
+        # interval to something useful to keep the overall scan time sufficiently low
+        #
+        ex("timeout 1 dvbsnoop -s bandwidth 8190 -n 400", 0, "^## PID:.*Avrg: +([^ ]+) ", a)
+        BWIDTH_OF[i] = int(a[1] + 0.5)
+        PRF(sprintf("%6s", BWIDTH_OF[i]))
+        BWIDTH_SUM = 0
+        RDD_UPD_STR = "rrdtool update " RRDBASE " N"
         for (k = 0; k < FREQ_CNT; ++k) {
-            SUM = SUM + LAST[k]
-            STR = STR ":" LAST[k]
-            STR1 = STR1 sprintf("%6s", LAST[k])
+            BWIDTH_SUM = BWIDTH_SUM + BWIDTH_OF[k]
+            RDD_UPD_STR = RDD_UPD_STR ":" BWIDTH_OF[k]
         }
-        STR = STR ":" SUM
-        STR1 = STR1 sprintf("%7s", SUM)
-PR(strftime("%T: ") sprintf("%2d: %s %5s ", i, add, LAST[i]) STR1)
-        ex(STR, 2)
+        RDD_UPD_STR = RDD_UPD_STR ":" BWIDTH_SUM
+        ex(RDD_UPD_STR, 2)
     }
-PR(strftime("%T: ") "scan time: " sprintf("%4s ", strftime("%s") - start) STR1)
+    PR(sprintf("%7s", BWIDTH_SUM))
 }
+
+func generate_rrdgraph( \
+    )
+{
+    ex(RRDGRAPH_CMD)
+    ex("mv " RRDGRAPH_TMP " " RRDGRAPH, 2)
+}
+
+func watch_the_scenery( \
+    )
+{
+    while (1) {
+        scan_down_channels()
+        generate_rrdgraph()
+    }
 }
 
 func usage( \
@@ -138,7 +214,9 @@ func process_cmdline( \
     if (match("$*", "help$")) { # print this help and exit
         usage()
     } else {
-        retrieve_down_freqs_from_TC4400()
+        retrieve_down_freqs()
+        assemble_rrdcreate_cmd()
+        assemble_rrdgraph_cmd()
         watch_the_scenery()
     }
 }
@@ -160,7 +238,6 @@ END {
 
 !
 
-[ `id -u` -eq 0 ] || PP='pp -q'
 [ -t 0 ] && STDIN="< /dev/null"
-eval exec $PP awk -f l5.awklib -f $0_$$.awk $STDIN 2>&1
+eval exec awk -f l5.awklib -f $0_$$.awk $STDIN 2>&1
 

@@ -2,7 +2,7 @@
 # --- awk library VERSION 0.0.5 (as of 2017_11_06) ---
 #
 # unfortunately some chars must be escaped differently
-# depending on awk or shell use e.g. "'" must be escaped
+# depending on awk or shell use e.g. "'" needs to be escaped
 # for shell but may not be escaped in awk.
 #
 # library version of escape_chars():
