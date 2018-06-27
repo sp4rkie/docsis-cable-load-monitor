@@ -110,49 +110,56 @@ if (0) {
 }
 
 func assemble_rrdcreate_cmd( \
-    )
+    CMD, i)
 {
+    CMD = "rrdtool create " RRDBASE " -s 1"                " \\\\\n"
+    for (i = 0; i < FREQ_CNT; ++i) {
+        CMD = CMD sprintf("DS:f%02d:GAUGE:120:U:U", i)     " \\\\\n"
+    }
+    CMD = CMD sprintf("DS:sum:GAUGE:120:U:U")              " \\\\\n"
+    CMD = CMD sprintf("RRA:AVERAGE:0.1:10:86400")
 
+    RRDCREATE_CMD = CMD
 }
 
 func assemble_rrdgraph_cmd( \
     CMD, i)
 {
-    CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG --lower-limit 0"                                                      " \\\\\n" \
-          "--title=\"Graph generated at \`date\`\""                                                                     " \\\\\n" \
-          "-w " RDDGRAPH_WIDTH " -h " RDDGRAPH_HEIGHT " --end now --start end-" RDDGRAPH_HISTSIZE "s"                   " \\\\\n" 
-    CMD = CMD                                                                                                           " \\\\\n"
+    CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG --lower-limit 0"                                      " \\\\\n" \
+          "--title=\"Graph generated at \`date\`\""                                                    " \\\\\n" \
+          "-w " RDDGRAPH_WIDTH " -h " RDDGRAPH_HEIGHT " --end now --start end-" RDDGRAPH_HISTSIZE "s"  " \\\\\n" 
+    CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
-        CMD = CMD sprintf("DEF:f%02d=" RRDBASE ":f%02d:AVERAGE", i, i)                                                 " \\\\\n" 
+        CMD = CMD sprintf("DEF:f%02d=" RRDBASE ":f%02d:AVERAGE", i, i)                                 " \\\\\n" 
     }
-    CMD = CMD sprintf("DEF:sum=" RRDBASE ":sum:AVERAGE", i, i)                                                         " \\\\\n" 
-    CMD = CMD                                                                                                           " \\\\\n"
+    CMD = CMD sprintf("DEF:sum=" RRDBASE ":sum:AVERAGE", i, i)                                         " \\\\\n" 
+    CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
         if (i < FREQ_CNT / 2) {
-            CMD = CMD sprintf("\"LINE:f%02d#ff0000:%d\"", i, FREQ[i] / 1000000)                                         " \\\\\n" 
+            CMD = CMD sprintf("\"LINE:f%02d#ff0000:%d\"", i, FREQ[i] / 1000000)                        " \\\\\n" 
         } else {
-            CMD = CMD sprintf("\"LINE:f%02d#0000ff:%d\"", i, FREQ[i] / 1000000)                                         " \\\\\n" 
+            CMD = CMD sprintf("\"LINE:f%02d#0000ff:%d\"", i, FREQ[i] / 1000000)                        " \\\\\n" 
         }
     }
-    CMD = CMD                                                                                                           " \\\\\n"
-    CMD = CMD "\"LINE:sum#00ff00:sum\\\l\""                                                                             " \\\\\n"
-    CMD = CMD                                                                                                           " \\\\\n"
+    CMD = CMD                                                                                          " \\\\\n"
+    CMD = CMD "\"LINE:sum#00ff00:sum\\\l\""                                                            " \\\\\n"
+    CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
-        CMD = CMD sprintf("\"GPRINT:f%02d:LAST:%d last\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                        " \\\\\n"
-        CMD = CMD sprintf("\"GPRINT:f%02d:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                         " \\\\\n"
-        CMD = CMD sprintf("\"GPRINT:f%02d:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                             " \\\\\n"
-        CMD = CMD sprintf("\"GPRINT:f%02d:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i] / 1000000)                         " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:LAST:%d last\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)       " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)        " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)            " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i] / 1000000)        " \\\\\n"
     }
-    CMD = CMD sprintf("\"GPRINT:sum:LAST:sum last\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                             " \\\\\n"
-    CMD = CMD sprintf("\"GPRINT:sum:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                               " \\\\\n"
-    CMD = CMD sprintf("\"GPRINT:sum:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                                   " \\\\\n"
-    CMD = CMD sprintf("\"GPRINT:sum:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i] / 1000000)                              #" \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:LAST:sum last\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)            " \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)              " \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                  " \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i] / 1000000)             #" \\\\\n"
 
     RRDGRAPH_CMD = CMD
 }
 
 func scan_down_channels( \
-    RDD_UPD_STR, BWIDTH_SUM, a, i, k)
+    RDDUPD_STR, BWIDTH_SUM, a, i, k)
 {
     PRF(strftime("%T: "))
     for (i = 0; i < FREQ_CNT; ++i) {
@@ -166,13 +173,18 @@ func scan_down_channels( \
         BWIDTH_OF[i] = int(a[1] + 0.5)
         PRF(sprintf("%6s", BWIDTH_OF[i]))
         BWIDTH_SUM = 0
-        RDD_UPD_STR = "rrdtool update " RRDBASE " N"
+        RDDUPD_STR = "rrdtool update " RRDBASE " N"
         for (k = 0; k < FREQ_CNT; ++k) {
             BWIDTH_SUM = BWIDTH_SUM + BWIDTH_OF[k]
-            RDD_UPD_STR = RDD_UPD_STR ":" BWIDTH_OF[k]
+            RDDUPD_STR = RDDUPD_STR ":" BWIDTH_OF[k]
         }
-        RDD_UPD_STR = RDD_UPD_STR ":" BWIDTH_SUM
-        ex(RDD_UPD_STR, 2)
+        #
+        # do not update until the initial scan completes
+        #
+        if (BWIDTH_OF[FREQ_CNT - 1]) {
+            RDDUPD_STR = RDDUPD_STR ":" BWIDTH_SUM
+            ex(RDDUPD_STR, 2)
+        } 
     }
     PR(sprintf("%7s", BWIDTH_SUM))
 }
@@ -209,14 +221,20 @@ func usage( \
 }
 
 func process_cmdline( \
-    )
+    rrdcreate)
 {
     if (match("$*", "help$")) { # print this help and exit
         usage()
     } else {
+        if (match("$*", "rrdcreate")) { # create a new rrd base
+            ++rrdcreate
+        }
         retrieve_down_freqs()
         assemble_rrdcreate_cmd()
         assemble_rrdgraph_cmd()
+        if (rrdcreate) {
+            ex(RRDCREATE_CMD, 2)
+        }
         watch_the_scenery()
     }
 }
