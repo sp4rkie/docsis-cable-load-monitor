@@ -1,12 +1,19 @@
 #!/bin/sh
 
-CABLE_MODEM=192.168.100.1
+#
+# tiny tool to scan the WebUI of an TC4400 docsis cable modem
+#
+# add this to your crontab to stay informed about the modem status
+#
+
+CABLE_MODEM_IP=192.168.100.1
+TMPFILE=/tmp/scan_tc4400
 
 for i in \
-http://$CABLE_MODEM/info.html \
-http://$CABLE_MODEM/arpview.cmd \
-http://$CABLE_MODEM/cmswinfo.html \
-http://$CABLE_MODEM/cmconnectionstatus.html 
+http://$CABLE_MODEM_IP/info.html \
+http://$CABLE_MODEM_IP/arpview.cmd \
+http://$CABLE_MODEM_IP/cmswinfo.html \
+http://$CABLE_MODEM_IP/cmconnectionstatus.html 
 do
 wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password='bEn2o#US9s' $i -O - |
 awk '{
@@ -24,7 +31,7 @@ awk '{
     }
 }'
 done | 
-lynx -nolist -width 300 -dump -stdin > /tmp/scan_tc4400_raw
+lynx -nolist -width 300 -dump -stdin > ${TMPFILE}_raw
 
 awk '{
     # patch fields to ignore
@@ -40,8 +47,8 @@ awk '{
 
     print
     
-'} < /tmp/scan_tc4400_raw > /tmp/scan_tc4400_new
+'} < ${TMPFILE}_raw > ${TMPFILE}_new
 
-[ -s /tmp/scan_tc4400_old ] && diff /tmp/scan_tc4400_old /tmp/scan_tc4400_new
-mv /tmp/scan_tc4400_new /tmp/scan_tc4400_old
+[ -s ${TMPFILE}_old ] && diff -w ${TMPFILE}_old ${TMPFILE}_new
+mv ${TMPFILE}_new ${TMPFILE}_old
 
