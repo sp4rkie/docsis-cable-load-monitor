@@ -59,7 +59,7 @@ func retrieve_down_freqs( \
     URL = "http://" CABLE_MODEM_IP "/cmconnectionstatus.html"
 
     PRF("frequencies in use: ")
-if (0) {
+if (1) {
     WGET = "echo; wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
     LYNX = "lynx -nolist -width 300 -dump -stdin"
     while ((line = ex_line(WGET)) != -1) {
