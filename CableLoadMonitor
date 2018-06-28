@@ -27,19 +27,19 @@ func setup( \
     CABLE_MODEM_IP = "192.168.100.1"
 
     RRDBASE = INSTPATH "CableLoadMonitor.rrd"
-    RRDBASE_RRASTEPS = 10
+    RRDBASE_RRASTEPS = 10                       # default to 10s
 
     RRDGRAPH = INSTPATH "CableLoadMonitor.png"
     RRDGRAPH_TMP = RRDGRAPH "_"
-    RDDGRAPH_WIDTH = 1500 # results in 1581x1111
-    RDDGRAPH_HEIGHT = 800
-    RDDGRAPH_HISTSTART = "now"
-    RDDGRAPH_HISTSIZE = 3600
+    RRDGRAPH_WIDTH = 1500                       # results in 1581x1111
+    RRDGRAPH_HEIGHT = 800
+    RRDGRAPH_HISTSTART = "now"                  # start from now
+    RRDGRAPH_HISTSIZE = 3600                    # display the past 1h
 
     # ---
 #   rrdbase_rrasteps = RRDBASE_RRASTEPS
-    rddgraph_histsize = RDDGRAPH_HISTSIZE
-    rddgraph_histstart = RDDGRAPH_HISTSTART
+    rrdgraph_histsize = RRDGRAPH_HISTSIZE
+    rrdgraph_histstart = RRDGRAPH_HISTSTART
 }
 
 func exit_(msg \
@@ -58,8 +58,9 @@ func retrieve_down_freqs( \
 {
     URL = "http://" CABLE_MODEM_IP "/cmconnectionstatus.html"
 
+    PRF("frequencies in use: ")
 if (0) {
-    WGET = "wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
+    WGET = "echo; wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
     LYNX = "lynx -nolist -width 300 -dump -stdin"
     while ((line = ex_line(WGET)) != -1) {
         if (match(line, "<script")) {
@@ -80,6 +81,9 @@ if (0) {
     }
     close(LYNX)
 } else {
+    #
+    # keep these for testing
+    #
     FREQ[FREQ_CNT++] = "530000000"
     FREQ[FREQ_CNT++] = "538000000"
     FREQ[FREQ_CNT++] = "546000000"
@@ -97,7 +101,10 @@ if (0) {
     FREQ[FREQ_CNT++] = "642000000"
     FREQ[FREQ_CNT++] = "650000000"
 }
-    PRF("scanned freqs: ")
+    if (!FREQ_CNT) {
+        exit_("could not retrieve any")
+    }
+    PRF("[ " FREQ_CNT " ] ")
     for (i = 0; i < FREQ_CNT; ++i) {
         PRF(FREQ[i] / 1000000 " ")
         BWIDTH_OF[i] = "na"
@@ -123,7 +130,8 @@ func assemble_rrdgraph_cmd( \
 {
     CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG --lower-limit 0"                                      " \\\\\n" \
           "--title=\"Graph generated at \`date\`\""                                                    " \\\\\n" \
-          "-w " RDDGRAPH_WIDTH " -h " RDDGRAPH_HEIGHT " --end " rddgraph_histstart " --start end-" rddgraph_histsize "s"  " \\\\\n" 
+          "-w " RRDGRAPH_WIDTH " -h " RRDGRAPH_HEIGHT                                                  " \\\\\n" \
+          "--end " rrdgraph_histstart " --start end-" rrdgraph_histsize "s"                            " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
         CMD = CMD sprintf("DEF:f%02d=" RRDBASE ":f%02d:AVERAGE", i, i)                                 " \\\\\n" 
@@ -155,7 +163,7 @@ func assemble_rrdgraph_cmd( \
 }
 
 func scan_down_channels( \
-    RDDUPD_STR, BWIDTH_SUM, a, i, k)
+    RRDUPD_STR, BWIDTH_SUM, a, i, k)
 {
     PRF(strftime("%T: "))
     for (i = 0; i < FREQ_CNT; ++i) {
@@ -175,17 +183,17 @@ func scan_down_channels( \
         BWIDTH_OF[i] = int(a[1] + 0.5)
         PRF(sprintf("%6s", BWIDTH_OF[i]))
         BWIDTH_SUM = 0
-        RDDUPD_STR = "rrdtool update " RRDBASE " N"
+        RRDUPD_STR = "rrdtool update " RRDBASE " N"
         for (k = 0; k < FREQ_CNT; ++k) {
-            BWIDTH_SUM = BWIDTH_SUM + BWIDTH_OF[k]
-            RDDUPD_STR = RDDUPD_STR ":" BWIDTH_OF[k]
+            BWIDTH_SUM += BWIDTH_OF[k]
+            RRDUPD_STR = RRDUPD_STR ":" BWIDTH_OF[k] * 1000
         }
         #
         # do not update until the initial scan completes
         #
         if (BWIDTH_OF[FREQ_CNT - 1] != "na") {
-            RDDUPD_STR = RDDUPD_STR ":" BWIDTH_SUM
-            ex(RDDUPD_STR, 2)
+            RRDUPD_STR = RRDUPD_STR ":" BWIDTH_SUM * 1000
+            ex(RRDUPD_STR, 2)
         } 
     }
     PR(sprintf("%7s", BWIDTH_SUM))
@@ -214,7 +222,7 @@ func usage( \
     while ((line = ex_line("cat " PRGNAME)) != -1) {
         if (locked) {
             if (match(line, "match[^,]+, \"(.+)\"[^\"]+# (.*)$", a)) {
-                PR(sprintf("  %-40s - %s", a[1], a[2]))
+                PR(sprintf("  %-20s - %s", a[1], a[2]))
             }
         } else {
             if (match(line, "^func process_cmdline")) ++locked
@@ -229,14 +237,14 @@ func process_cmdline( \
         if (match(_ARGV[i], "-h")) { # print this help and exit
             usage()
             exit
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-s [0-9]+( |$)")) { # display window start time in the past (in secs)
-            rddgraph_histstart = strftime("%s") - _ARGV[i + 1]
-            ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w [0-9]+( |$)")) { # display window time frame (in secs)
-            rddgraph_histsize = _ARGV[i + 1]
-            ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c [0-9]+( |$)")) { # create a rrd base with given RRA steps
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+( |$)")) { # create a rrd base with given RRA steps
             rrdbase_rrasteps = _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-s +[0-9]+( |$)")) { # display time frame start in the past (in secs)
+            rrdgraph_histstart = strftime("%s") - _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w +[0-9]+( |$)")) { # display time frame size (in secs)
+            rrdgraph_histsize = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i], "-i")) { # ignore errors reported by dvbtune
             ++dvbtune_ignerrs
@@ -245,11 +253,14 @@ func process_cmdline( \
             ++ERR; exit
         }
     }
-    if (rrdbase_rrasteps) PR("create a rrd base with RRA step size of " rrdbase_rrasteps)
+    if (!ex("ls " RRDBASE, 0 ,"^(" RRDBASE ")$")) {
+        if (!rrdbase_rrasteps) rrdbase_rrasteps = RRDBASE_RRASTEPS
+        PRF("no RRD base found: ")
+    }
+    if (rrdbase_rrasteps) PR("create a RRD base with RRA step size of " rrdbase_rrasteps)
     if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
-
-    PR("display window start: " (rddgraph_histstart == "now" ? "now" : strftime("%T", rddgraph_histstart)))
-    PR("display window size:  " rddgraph_histsize "s")
+    PR("display time frame start: " (rrdgraph_histstart == "now" ? "now" : strftime("%T", rrdgraph_histstart)))
+    PR("display time frame size:  " rrdgraph_histsize "s")
     
     retrieve_down_freqs()
     assemble_rrdcreate_cmd()
