@@ -26,24 +26,20 @@ func setup( \
 
     CABLE_MODEM_IP = "192.168.100.1"
 
-    RRDBASE = "CableLoadMonitor.rrd"
-    RRDGRAPH = "CableLoadMonitor.png"
-    RRDGRAPH_TMP = RRDGRAPH "_"
+    RRDBASE = INSTPATH "CableLoadMonitor.rrd"
+    RRDBASE_RRASTEPS = 10
 
+    RRDGRAPH = INSTPATH "CableLoadMonitor.png"
+    RRDGRAPH_TMP = RRDGRAPH "_"
     RDDGRAPH_WIDTH = 1500 # results in 1581x1111
     RDDGRAPH_HEIGHT = 800
+    RDDGRAPH_HISTSTART = "now"
+    RDDGRAPH_HISTSIZE = 3600
 
-    RDDGRAPH_HISTSIZE = 100
-    RDDGRAPH_HISTSIZE = 300
-    RDDGRAPH_HISTSIZE = 500
-    RDDGRAPH_HISTSIZE = 700
-    RDDGRAPH_HISTSIZE = 1000
-    RDDGRAPH_HISTSIZE = 2000
-    #RDDGRAPH_HISTSIZE = 3600
-    #RDDGRAPH_HISTSIZE = 7000
-    #RDDGRAPH_HISTSIZE = 16000
-    #RDDGRAPH_HISTSIZE = 30000
-    #RDDGRAPH_HISTSIZE = 86400
+    # ---
+#   rrdbase_rrasteps = RRDBASE_RRASTEPS
+    rddgraph_histsize = RDDGRAPH_HISTSIZE
+    rddgraph_histstart = RDDGRAPH_HISTSTART
 }
 
 func exit_(msg \
@@ -55,7 +51,7 @@ func exit_(msg \
 }
 
 #
-# specific to TC4400 only ATM
+# specific to TC4400 yet
 #
 func retrieve_down_freqs( \
     URL, ignore, line, WGET, LYNX, i, a)
@@ -104,7 +100,7 @@ if (0) {
     PRF("scanned freqs: ")
     for (i = 0; i < FREQ_CNT; ++i) {
         PRF(FREQ[i] / 1000000 " ")
-        BWIDTH_OF[i] = 0
+        BWIDTH_OF[i] = "na"
     }
     PR("\n")
 }
@@ -117,7 +113,7 @@ func assemble_rrdcreate_cmd( \
         CMD = CMD sprintf("DS:f%02d:GAUGE:120:U:U", i)     " \\\\\n"
     }
     CMD = CMD sprintf("DS:sum:GAUGE:120:U:U")              " \\\\\n"
-    CMD = CMD sprintf("RRA:AVERAGE:0.1:10:86400")
+    CMD = CMD sprintf("RRA:AVERAGE:0.1:" rrdbase_rrasteps ":86400")
 
     RRDCREATE_CMD = CMD
 }
@@ -127,7 +123,7 @@ func assemble_rrdgraph_cmd( \
 {
     CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG --lower-limit 0"                                      " \\\\\n" \
           "--title=\"Graph generated at \`date\`\""                                                    " \\\\\n" \
-          "-w " RDDGRAPH_WIDTH " -h " RDDGRAPH_HEIGHT " --end now --start end-" RDDGRAPH_HISTSIZE "s"  " \\\\\n" 
+          "-w " RDDGRAPH_WIDTH " -h " RDDGRAPH_HEIGHT " --end " rddgraph_histstart " --start end-" rddgraph_histsize "s"  " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
         CMD = CMD sprintf("DEF:f%02d=" RRDBASE ":f%02d:AVERAGE", i, i)                                 " \\\\\n" 
@@ -163,13 +159,19 @@ func scan_down_channels( \
 {
     PRF(strftime("%T: "))
     for (i = 0; i < FREQ_CNT; ++i) {
-        ex("dvbtune -f " FREQ[i] " -s 6952 -qam 256")
+        ex("timeout 10 dvbtune -f " FREQ[i] " -s 6952 -qam 256", 0, "Bit error rate: ([0-9]+)$", a)
+        a[1] += 0
+        if (a[1] && !dvbtune_ignerrs) {
+            PR("\n\n" a[0] ", please check your cables\n")
+        }
 
         #
         # in case of very small bandwidth values limit the measurement 
         # interval to something useful to keep the overall scan time sufficiently low
         #
-        ex("timeout 1 dvbsnoop -s bandwidth 8190 -n 400", 0, "^## PID:.*Avrg: +([^ ]+) ", a)
+        if (!ex("timeout 1 dvbsnoop -s bandwidth 8190 -n 400", 0, "^## PID:.*Avrg: +([^ ]+) ", a)) {
+            exit_("dvbsnoop fails")
+        }
         BWIDTH_OF[i] = int(a[1] + 0.5)
         PRF(sprintf("%6s", BWIDTH_OF[i]))
         BWIDTH_SUM = 0
@@ -181,7 +183,7 @@ func scan_down_channels( \
         #
         # do not update until the initial scan completes
         #
-        if (BWIDTH_OF[FREQ_CNT - 1]) {
+        if (BWIDTH_OF[FREQ_CNT - 1] != "na") {
             RDDUPD_STR = RDDUPD_STR ":" BWIDTH_SUM
             ex(RDDUPD_STR, 2)
         } 
@@ -200,8 +202,8 @@ func watch_the_scenery( \
     )
 {
     while (1) {
-        scan_down_channels()
         generate_rrdgraph()
+        scan_down_channels()
     }
 }
 
@@ -221,22 +223,41 @@ func usage( \
 }
 
 func process_cmdline( \
-    rrdcreate)
+    i)
 {
-    if (match("$*", "help$")) { # print this help and exit
-        usage()
-    } else {
-        if (match("$*", "rrdcreate")) { # create a new rrd base
-            ++rrdcreate
+    for (i = 2; i < _ARGC; ++i) {
+        if (match(_ARGV[i], "-h")) { # print this help and exit
+            usage()
+            exit
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-s [0-9]+( |$)")) { # display window start time in the past (in secs)
+            rddgraph_histstart = strftime("%s") - _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w [0-9]+( |$)")) { # display window time frame (in secs)
+            rddgraph_histsize = _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c [0-9]+( |$)")) { # create a rrd base with given RRA steps
+            rrdbase_rrasteps = _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i], "-i")) { # ignore errors reported by dvbtune
+            ++dvbtune_ignerrs
+        } else {
+            usage()
+            ++ERR; exit
         }
-        retrieve_down_freqs()
-        assemble_rrdcreate_cmd()
-        assemble_rrdgraph_cmd()
-        if (rrdcreate) {
-            ex(RRDCREATE_CMD, 2)
-        }
-        watch_the_scenery()
     }
+    if (rrdbase_rrasteps) PR("create a rrd base with RRA step size of " rrdbase_rrasteps)
+    if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
+
+    PR("display window start: " (rddgraph_histstart == "now" ? "now" : strftime("%T", rddgraph_histstart)))
+    PR("display window size:  " rddgraph_histsize "s")
+    
+    retrieve_down_freqs()
+    assemble_rrdcreate_cmd()
+    assemble_rrdgraph_cmd()
+    if (rrdbase_rrasteps) {
+        ex(RRDCREATE_CMD, 2)
+    }
+    watch_the_scenery()
 }
 
 BEGIN {
@@ -257,5 +278,5 @@ END {
 !
 
 [ -t 0 ] && STDIN="< /dev/null"
-eval exec awk -f l5.awklib -f $0_$$.awk $STDIN 2>&1
+eval exec awk -f /usr/local/lib/l5.awklib -f $0_$$.awk $STDIN 2>&1
 
