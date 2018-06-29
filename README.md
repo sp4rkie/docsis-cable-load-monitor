@@ -107,7 +107,7 @@ The program also generates some graphics by means of the 'rrdtool' package. The 
 
 ![alt text](CableLoadMonitor.png "Title")
 
-The metered values start moderately at about 20Mbit/s. At 14:50 a download with 120Mbit/s for about 2 minutes is identified. The values peak in 140Mbit/s reflecting the sum of 20Mbit/s + 120Mbit/s.
+The metered values start moderately at about 20Mbit/s. At 14:50 a download with 120Mbit/s initiates spanning a period of about 2 minutes. The values peak in 140Mbit/s reflecting the sum of 20Mbit/s + 120Mbit/s.
 
 - command line options
 
