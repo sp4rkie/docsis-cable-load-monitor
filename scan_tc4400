@@ -36,7 +36,7 @@ lynx -nolist -width 300 -dump -stdin > ${TMPFILE}_raw
 awk '{
     # patch fields to ignore
     if ($3 == "Locked" && match($11, "^[0-9.]+$")) $11 = "c_1"  # up/downstream
-    if ($3 == "Locked" && match($13, "^[0-9.]+$")) $13 = "c_2"  # downstream
+    if ($3 == "Locked" && match($13, "^[0-9.-]+$")) $13 = "c_2"  # downstream
     if ($3 == "Locked" && match($16, "^[0-9]+$")) $16 = "c_3"   # downstream
     if ($3 == "Locked" && match($17, "^[0-9]+$")) $17 = "c_4"   # downstream
     if (match($0, "Current System Time:")) $0 = "c_5"
