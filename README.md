@@ -105,7 +105,7 @@ For 16 channels this typically takes about 25s what seems to be acceptable.
 
 The program also generates some graphics by means of the 'rrdtool' package. The alphanumeric exapmle from above looks like this:
 
-![alt text](CableLoadMonitor.jpg "Title")
+![alt text](CableLoadMonitor.png "Title")
 
 The metered values start moderately at about 20Mbit/s. At 14:50 a download with 120Mbit/s for about 2 minutes is identified. The metered values peak in 140Mbit/s reflecting the sum of 20Mbit/s + 120Mbit/s.
 
