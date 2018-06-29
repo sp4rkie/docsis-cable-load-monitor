@@ -10,7 +10,7 @@ what is it
 required hardware
 -----------------
 
-- basically any linux machine with Linux DVB API (Version 3, Version 5.x) and DVB-C support is suitable for this
+- basically any linux machine with Linux DVB API (Version 3, Version 5.x) and DVB-C support is suitable
 - to ease things further following components are recommended:
     - Raspberry Pi (e.g. Pi 3 Model B)
     - TV stick: Sundtek MediaTV Pro III (DVB-C/T/T2, FM-Radio, AnalogTV)
@@ -43,7 +43,7 @@ how to use it
 this first will try to automatically retrieve the downstream frequencies in use.
 Currently this will work only for an Technicolor TC4400 DOCSIS modem. If this is not available you must provide the
 frequency list manually by means of the '-f' option (see below). 
-The program will then start to meter the cable load. The results are visible on the console.
+The program then will start to meter the cable load. The raw results are shown on the console.
 
 - alphanumeric support
 
@@ -98,18 +98,18 @@ An example console output for 16 downstream frequencies could look like this:
         14:56:26:   7939  2262  2315  2416   121    90  1098   463   102    32    75    77    25     5     9     4  17033
 
 The lines start with the time of measurement followed by 16 values that represent the cable load (in kbit/s) for each down channel. The last value is the overall sum. 
-Ideally we would have to take a snapshot of all 16 values at the same time. Since we can receive only one frequency at a given time we collect the values sequentially.
+Ideally we would take a snapshot of all 16 values at the same time. Since we can receive only one frequency at a given time we collect the values sequentially.
 For 16 channels this typically takes about 25s what seems to be acceptable.
 
 - graphic support
 
-The program also generates some graphics by means of the 'rrdtool' package. The alphanumeric exapmle from above looks like this:
+The program also generates some graphics by means of the 'rrdtool' package. The alphanumeric example from above looks like this:
 
 ![alt text](CableLoadMonitor.png "Title")
 
-The metered values start moderately at about 20Mbit/s. At 14:50 a download with 120Mbit/s for about 2 minutes is identified. The metered values peak in 140Mbit/s reflecting the sum of 20Mbit/s + 120Mbit/s.
+The metered values start moderately at about 20Mbit/s. At 14:50 a download with 120Mbit/s for about 2 minutes is identified. The values peak in 140Mbit/s reflecting the sum of 20Mbit/s + 120Mbit/s.
 
-- commandline options
+- command line options
 
         Usage: CableLoadMonitor
           -h                   - print this help and exit
@@ -118,7 +118,7 @@ The metered values start moderately at about 20Mbit/s. At 14:50 a download with 
           -w +[0-9]+( |$)      - display time frame size (in secs)
           -i                   - ignore errors reported by dvbtune
 
-[ to be continued ]
+[ incomplete ]
 
 - diagnosis
 
