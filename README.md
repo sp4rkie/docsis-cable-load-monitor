@@ -5,7 +5,7 @@ what is it
 ----------
 
 - a small tool to monitor downstream load on docsis cable networks
-- the basic idea how to realize this with cheap hardware originates from here: [Auslastung des eigenen Segments ansehen](https://www.kdgforum.de/viewtopic.php?f=69&t=15097&hilit=auslastung+ansehen#p202854)
+- the ingenious idea how to realize this with cheap hardware originates from here: [Auslastung des eigenen Segments ansehen](https://www.kdgforum.de/viewtopic.php?f=69&t=15097)
 
 required hardware
 -----------------
