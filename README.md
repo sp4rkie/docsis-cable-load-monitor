@@ -128,6 +128,8 @@ reference
 ---------
 
 [Auslastung des eigenen Segments ansehen](https://www.kdgforum.de/viewtopic.php?f=69&t=15097&hilit=auslastung+ansehen#p202854)
+
 [Auslastung des eigenen Segments ansehen (reloaded)](https://www.unitymediaforum.de/viewtopic.php?f=53&t=37095)
-Installation unter Linux (allgemein)](http://support.sundtek.com/index.php/topic,2.0.html)
+
+[Installation unter Linux (allgemein)](http://support.sundtek.com/index.php/topic,2.0.html)
 
