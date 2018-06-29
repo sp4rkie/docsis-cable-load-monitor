@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# tiny tool to scan the WebUI of an TC4400 docsis cable modem
+# tiny tool to scan the WebUI of an TC4400 DOCSIS cable modem
 #
 # add this to your crontab to stay informed about the modem status
 #

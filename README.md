@@ -4,7 +4,7 @@ docsis-cable-load-monitor
 what is it
 ----------
 
-- a small tool to monitor downstream load on docsis cable networks
+- a small tool to monitor downstream load on DOCSIS cable networks
 - the ingenious idea how to realize this with cheap hardware originates from here: [Auslastung des eigenen Segments ansehen](https://www.kdgforum.de/viewtopic.php?f=69&t=15097)
 
 required hardware
