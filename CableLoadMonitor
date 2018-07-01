@@ -40,6 +40,31 @@ func setup( \
 #   rrdbase_rrasteps = RRDBASE_RRASTEPS
     rrdgraph_histsize = RRDGRAPH_HISTSIZE
     rrdgraph_histstart = RRDGRAPH_HISTSTART
+
+    # --- define this to display a black theme
+    if (++use_black_theme) {
+        IF_BLACK_THEME = IF_BLACK_THEME "--color \"ARROW#ffffff\""   " \\\\\n"
+        IF_BLACK_THEME = IF_BLACK_THEME "--color \"BACK#000000\""    " \\\\\n"
+        IF_BLACK_THEME = IF_BLACK_THEME "--color \"CANVAS#000000\""  " \\\\\n"
+        IF_BLACK_THEME = IF_BLACK_THEME "--color \"GRID#ffffff\""    " \\\\\n"
+        IF_BLACK_THEME = IF_BLACK_THEME "--color \"MGRID#ffffff\""   " \\\\\n"
+        IF_BLACK_THEME = IF_BLACK_THEME "--color \"FONT#ffffff\""    " \\\\\n"
+        IF_BLACK_THEME = IF_BLACK_THEME "--color \"AXIS#ffffff\""    " \\\\\n"
+        IF_BLACK_THEME = IF_BLACK_THEME "--color \"FRAME#ffffff\""   " \\\\\n"
+        IF_BLACK_THEME = IF_BLACK_THEME "--border 1"                 " \\\\\n"
+    }
+    # --- define this to rescale the sum graph
+    if (use_2nd_yaxis) {
+        IF_2ND_YAXIS_SCALE = 10
+
+        IF_2ND_YAXIS = IF_2ND_YAXIS "--right-axis " 1 / IF_2ND_YAXIS_SCALE ":1"    " \\\\\n"
+        IF_2ND_YAXIS = IF_2ND_YAXIS "--right-axis-label sum"                       " \\\\\n"
+
+        SUM_DEF = SUM_DEF sprintf("DEF:sum_=" RRDBASE ":sum:AVERAGE", i, i)        " \\\\\n"
+        SUM_DEF = SUM_DEF "CDEF:sum=sum_," IF_2ND_YAXIS_SCALE ",/"                 " \\\\\n"
+    } else {
+        SUM_DEF = SUM_DEF sprintf("DEF:sum=" RRDBASE ":sum:AVERAGE", i, i)         " \\\\\n"
+    }
 }
 
 func exit_(msg \
@@ -133,10 +158,13 @@ func assemble_rrdgraph_cmd( \
           "-w " RRDGRAPH_WIDTH " -h " RRDGRAPH_HEIGHT                                                  " \\\\\n" \
           "--end " rrdgraph_histstart " --start end-" rrdgraph_histsize "s"                            " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
+    CMD = CMD IF_BLACK_THEME                                                                           " \\\\\n"
+    CMD = CMD IF_2ND_YAXIS                                                                             " \\\\\n"
+    CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
         CMD = CMD sprintf("DEF:f%02d=" RRDBASE ":f%02d:AVERAGE", i, i)                                 " \\\\\n" 
     }
-    CMD = CMD sprintf("DEF:sum=" RRDBASE ":sum:AVERAGE", i, i)                                         " \\\\\n" 
+    CMD = CMD SUM_DEF                                                                                  " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
         if (i < FREQ_CNT / 2) {
@@ -175,9 +203,12 @@ func scan_down_channels( \
 
         #
         # in case of very small bandwidth values limit the measurement 
-        # interval to something useful to keep the overall scan time sufficiently low
+        # interval to something useful to keep the overall scan time sufficiently low.
         #
-        if (!ex("timeout 1 dvbsnoop -s bandwidth 8190 -n 400", 0, "^## PID:.*Avrg: +([^ ]+) ", a)) {
+        # the arbitrarily chosen stop value of 80000 appears to be high enough to even 
+        # handle high bandwidths with enough accuracy.
+        #
+        if (!ex("timeout 1 dvbsnoop -s bandwidth 8190 -n 80000", 0, "^## PID:.*Avrg: +([^ ]+) ", a)) {
             exit_("dvbsnoop fails")
         }
         BWIDTH_OF[i] = int(a[1] + 0.5)
