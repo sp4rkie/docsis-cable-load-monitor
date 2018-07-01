@@ -44,6 +44,9 @@ awk '{
     if (match($0, "REFRESH.*file://.*html")) $0 = "c_7"
     if (match($0, "Uptime:   ")) $0 = "c_8"
     if (match($0, "Systime:  ")) $0 = "c_9"
+    # for some unknown reason "CM Hardware Address" sometimes is left empty ->
+    # ignore this to avoid false positives. the value does not change anyway.
+    if (match($0, "CM Hardware Address:")) $0 = "c_0"
 
     print
     
