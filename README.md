@@ -97,7 +97,7 @@ An example console output for 16 downstream frequencies could look like this:
         14:56:01:   3421  2908  2267  2259   100   573   828  1873    89    16    14    14     9     9     7     6  14393
         14:56:26:   7939  2262  2315  2416   121    90  1098   463   102    32    75    77    25     5     9     4  17033
 
-The lines start with the time of measurement followed by 16 values that represent the cable load (in kbit/s) for each down channel. The last value is the overall sum. 
+The lines start with the time of measurement followed by 16 values representing the cable load (in kbit/s) for each down channel. The last value is the overall sum. 
 Ideally we would take a snapshot of all 16 values at the same time. Since we can receive only one frequency at a given time we collect the values sequentially.
 For 16 channels this typically takes about 25s what seems to be acceptable.
 
@@ -122,7 +122,7 @@ The metered values start moderately at about 20Mbit/s. At 14:50 a download with 
 
 - diagnosis
 
-The program logs all activity in file `CableLoadMonitor.log`. This will be the first place to look at if something went wrong.
+The program logs all activity to file `CableLoadMonitor.log`. This will be the first place to look at if something went wrong.
 
 reference
 ---------
