@@ -19,7 +19,7 @@ software installation
 ---------------------
 
 - first Raspbian has to be installed on the RPi: [Download Raspbian for Raspberry Pi](https://www.raspberrypi.org/downloads/raspbian/)
-- after this the following additional packages have to be installed:
+- after this the following additional packages are required:
         
         sudo apt install wget gawk lynx dvbsnoop dvbtune rrdtool feh
 
