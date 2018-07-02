@@ -13,7 +13,8 @@ for i in \
 http://$CABLE_MODEM_IP/info.html \
 http://$CABLE_MODEM_IP/arpview.cmd \
 http://$CABLE_MODEM_IP/cmswinfo.html \
-http://$CABLE_MODEM_IP/cmconnectionstatus.html 
+http://$CABLE_MODEM_IP/cmconnectionstatus.html \
+http://$CABLE_MODEM_IP/cmeventlog.html
 do
 wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password='bEn2o#US9s' $i -O - |
 awk '{
@@ -31,17 +32,18 @@ awk '{
     }
 }'
 done | 
-lynx -nolist -width 300 -dump -stdin > ${TMPFILE}_raw
+w3m -r -T text/html -cols 1000 -no-graph -dump > ${TMPFILE}_raw
+# prefer w3m since it works better with tables
+#lynx -nolist -width 300 -dump -stdin > ${TMPFILE}_raw
 
 awk '{
     # patch fields to ignore
-    if ($3 == "Locked" && match($11, "^[0-9.]+$")) $11 = "c_1"  # up/downstream
-    if ($3 == "Locked" && match($13, "^[0-9.-]+$")) $13 = "c_2"  # downstream
-    if ($3 == "Locked" && match($16, "^[0-9]+$")) $16 = "c_3"   # downstream
-    if ($3 == "Locked" && match($17, "^[0-9]+$")) $17 = "c_4"   # downstream
+    if ($6 == "Locked" && match($19, "^[0-9.]+$")) $19 = "c_1"  # up/downstream
+    if ($6 == "Locked" && match($22, "^[0-9.-]+$")) $22 = "c_2"  # downstream
+    if ($6 == "Locked" && match($27, "^[0-9]+$")) $27 = "c_3"   # downstream
+    if ($6 == "Locked" && match($29, "^[0-9]+$")) $29 = "c_4"   # downstream
     if (match($0, "Current System Time:")) $0 = "c_5"
     if (match($0, "IPv4=.*D:.*H:.*M:.*S:")) $0 = "c_6"
-    if (match($0, "REFRESH.*file://.*html")) $0 = "c_7"
     if (match($0, "Uptime:   ")) $0 = "c_8"
     if (match($0, "Systime:  ")) $0 = "c_9"
     # for some unknown reason "CM Hardware Address" sometimes is left empty ->
