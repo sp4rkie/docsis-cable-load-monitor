@@ -54,6 +54,7 @@ awk '{
     
 '} < ${TMPFILE}_raw > ${TMPFILE}_new
 
+[ -s ${TMPFILE}_new ] || { echo no modem data available; exit; }
 [ -s ${TMPFILE}_old ] && diff -w ${TMPFILE}_old ${TMPFILE}_new
 mv ${TMPFILE}_new ${TMPFILE}_old
 
