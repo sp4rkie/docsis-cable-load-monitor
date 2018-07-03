@@ -24,8 +24,6 @@ func setup( \
     setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`hostname`", "$R_")
     PRP(CLARGS "\n")
 
-    CABLE_MODEM_IP = "192.168.100.1"
-
     RRDBASE = INSTPATH "CableLoadMonitor.rrd"
     RRDBASE_RRASTEPS = 10                       # default to 10s
 
@@ -35,6 +33,11 @@ func setup( \
     RRDGRAPH_HEIGHT = 800
     RRDGRAPH_HISTSTART = "now"                  # start from now
     RRDGRAPH_HISTSIZE = 3600                    # display the past 1h
+    RRDGRAPH_Y_UPPER_LIMIT = 200000000          # scale Y axis to this minimum
+
+    CABLE_MODEM_IP = "192.168.100.1"
+    FREQ_CACHE = INSTPATH "CableLoadMonitor.fcache"
+    FREQ_FACTOR = 1000000
 
     # ---
 #   rrdbase_rrasteps = RRDBASE_RRASTEPS
@@ -75,66 +78,77 @@ func exit_(msg \
     ++ERR; exit
 }
 
-#
-# specific to TC4400 yet
-#
-func retrieve_down_freqs( \
-    URL, ignore, line, WGET, LYNX, i, a)
+func set_freqs(str, \
+    i, a)
+{
+    if (!match(str, "^[0-9]+(:[0-9]+)*$")) {
+        return 0
+    }
+    split(str, a, ":")
+    for (i = 1; a[i]; ++i) {
+        FREQ[FREQ_CNT++] = a[i]
+    }
+    return 1
+}
+
+func retrieve_down_freqs(freqs, \
+    cleared_cache, URL, ignore, line, WGET, LYNX, i, a)
 {
     URL = "http://" CABLE_MODEM_IP "/cmconnectionstatus.html"
 
-    PRF("frequencies in use: ")
-if (1) {
-    WGET = "echo; wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
-    LYNX = "lynx -nolist -width 300 -dump -stdin"
-    while ((line = ex_line(WGET)) != -1) {
-        if (match(line, "<script")) {
-            ++ignore
-        } else if (ignore) {
-            if (match(line, "/script?")) {
-                ignore = 0
+    if (freqs) {
+        PR("reading freqs from command line")
+        if (!set_freqs(freqs)) {
+            exit_("can't handle freq specification")
+        }
+        print freqs > FREQ_CACHE; close(FREQ_CACHE)
+        ++cleared_cache
+    } else if (ex("ls " FREQ_CACHE, 0 ,"^(" FREQ_CACHE ")$")) {
+        PR("reading freqs from cache")
+        getline freqs < FREQ_CACHE; close(FREQ_CACHE)
+        if (!set_freqs(freqs)) {
+            exit_("invalid freq cache")
+        }
+    } else {
+        #
+        # specific to TC4400 yet
+        #
+        PR("trying to retrieve freqs from TC4400 modem")
+        WGET = "echo; wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
+        LYNX = "lynx -nolist -width 300 -dump -stdin"
+        while ((line = ex_line(WGET)) != -1) {
+            if (match(line, "<script")) {
+                ++ignore
+            } else if (ignore) {
+                if (match(line, "/script?")) {
+                    ignore = 0
+                }
+            } else {
+                print line |& LYNX
             }
-        } else {
-            print line |& LYNX
         }
-    }
-    close(LYNX, "to")
-    while (LYNX |& getline line > 0) {
-        if (match(line, "Locked +SC-QAM +Downstream +Bonded +([0-9]+) ", a)) {
-            FREQ[FREQ_CNT++] = a[1]
+        close(LYNX, "to")
+        while (LYNX |& getline line > 0) {
+            if (match(line, "Locked +SC-QAM +Downstream +Bonded +([0-9]+) ", a)) {
+                FREQ[FREQ_CNT++] = a[1] / FREQ_FACTOR
+                freqs = freqs (freqs ? ":" : "") FREQ[FREQ_CNT - 1]
+            }
         }
+        close(LYNX)
+        print freqs > FREQ_CACHE; close(FREQ_CACHE)
+        ++cleared_cache
     }
-    close(LYNX)
-} else {
-    #
-    # keep these for testing
-    #
-    FREQ[FREQ_CNT++] = "530000000"
-    FREQ[FREQ_CNT++] = "538000000"
-    FREQ[FREQ_CNT++] = "546000000"
-    FREQ[FREQ_CNT++] = "554000000"
-    FREQ[FREQ_CNT++] = "562000000"
-    FREQ[FREQ_CNT++] = "570000000"
-    FREQ[FREQ_CNT++] = "578000000"
-    FREQ[FREQ_CNT++] = "586000000"
-    FREQ[FREQ_CNT++] = "594000000"
-    FREQ[FREQ_CNT++] = "602000000"
-    FREQ[FREQ_CNT++] = "610000000"
-    FREQ[FREQ_CNT++] = "618000000"
-    FREQ[FREQ_CNT++] = "626000000"
-    FREQ[FREQ_CNT++] = "634000000"
-    FREQ[FREQ_CNT++] = "642000000"
-    FREQ[FREQ_CNT++] = "650000000"
-}
+    PRF("frequencies now in use: ")
     if (!FREQ_CNT) {
         exit_("could not retrieve any")
     }
     PRF("[ " FREQ_CNT " ] ")
     for (i = 0; i < FREQ_CNT; ++i) {
-        PRF(FREQ[i] / 1000000 " ")
+        PRF(FREQ[i] " ")
         BWIDTH_OF[i] = "na"
     }
-    PR("\n")
+    PR("")
+    return cleared_cache
 }
 
 func assemble_rrdcreate_cmd( \
@@ -153,7 +167,7 @@ func assemble_rrdcreate_cmd( \
 func assemble_rrdgraph_cmd( \
     CMD, i)
 {
-    CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG --lower-limit 0"                                      " \\\\\n" \
+    CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT                      " \\\\\n" \
           "--title=\"Graph generated at \`date\`\""                                                    " \\\\\n" \
           "-w " RRDGRAPH_WIDTH " -h " RRDGRAPH_HEIGHT                                                  " \\\\\n" \
           "--end " rrdgraph_histstart " --start end-" rrdgraph_histsize "s"                            " \\\\\n" 
@@ -168,24 +182,24 @@ func assemble_rrdgraph_cmd( \
     CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
         if (i < FREQ_CNT / 2) {
-            CMD = CMD sprintf("\"LINE:f%02d#ff0000:%d\"", i, FREQ[i] / 1000000)                        " \\\\\n" 
+            CMD = CMD sprintf("\"LINE:f%02d#ff0000:%d\"", i, FREQ[i])                                  " \\\\\n" 
         } else {
-            CMD = CMD sprintf("\"LINE:f%02d#0000ff:%d\"", i, FREQ[i] / 1000000)                        " \\\\\n" 
+            CMD = CMD sprintf("\"LINE:f%02d#0000ff:%d\"", i, FREQ[i])                                  " \\\\\n" 
         }
     }
     CMD = CMD                                                                                          " \\\\\n"
     CMD = CMD "\"LINE:sum#00ff00:sum\\\l\""                                                            " \\\\\n"
     CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
-        CMD = CMD sprintf("\"GPRINT:f%02d:LAST:%d last\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)       " \\\\\n"
-        CMD = CMD sprintf("\"GPRINT:f%02d:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)        " \\\\\n"
-        CMD = CMD sprintf("\"GPRINT:f%02d:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)            " \\\\\n"
-        CMD = CMD sprintf("\"GPRINT:f%02d:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i] / 1000000)        " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:LAST:%d last\\\: %%6.0lf %%s\"", i, FREQ[i])                 " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i])                  " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i])                      " \\\\\n"
+        CMD = CMD sprintf("\"GPRINT:f%02d:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i])                  " \\\\\n"
     }
-    CMD = CMD sprintf("\"GPRINT:sum:LAST:sum last\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)            " \\\\\n"
-    CMD = CMD sprintf("\"GPRINT:sum:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)              " \\\\\n"
-    CMD = CMD sprintf("\"GPRINT:sum:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i] / 1000000)                  " \\\\\n"
-    CMD = CMD sprintf("\"GPRINT:sum:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i] / 1000000)             #" \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:LAST:sum last\\\: %%6.0lf %%s\"", i, FREQ[i])                      " \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i])                        " \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i])                            " \\\\\n"
+    CMD = CMD sprintf("\"GPRINT:sum:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i])                       #" \\\\\n"
 
     RRDGRAPH_CMD = CMD
 }
@@ -195,7 +209,9 @@ func scan_down_channels( \
 {
     PRF(strftime("%T: "))
     for (i = 0; i < FREQ_CNT; ++i) {
-        ex("timeout 10 dvbtune -f " FREQ[i] " -s 6952 -qam 256", 0, "Bit error rate: ([0-9]+)$", a)
+#        tuning via mediaclient not in use ATM
+#        ex("timeout 10 /opt/bin/mediaclient -d /dev/dvb/adapter0/frontend0 -m DVBC -f " FREQ[i] * FREQ_FACTOR " -M Q256 -S 6952000")
+        ex("timeout 10 dvbtune -f " FREQ[i] * FREQ_FACTOR " -s 6952 -qam 256", 0, "Bit error rate: ([0-9]+)$", a)
         a[1] += 0
         if (a[1] && !dvbtune_ignerrs) {
             PR("\n\n" a[0] ", please check your cables\n")
@@ -253,7 +269,7 @@ func usage( \
     while ((line = ex_line("cat " PRGNAME)) != -1) {
         if (locked) {
             if (match(line, "match[^,]+, \"(.+)\"[^\"]+# (.*)$", a)) {
-                PR(sprintf("  %-20s - %s", a[1], a[2]))
+                PR(sprintf("  %-25s - %s", a[1], a[2]))
             }
         } else {
             if (match(line, "^func process_cmdline")) ++locked
@@ -262,38 +278,46 @@ func usage( \
 }
 
 func process_cmdline( \
-    i)
+    freq_list, i)
 {
     for (i = 2; i < _ARGC; ++i) {
         if (match(_ARGV[i], "-h")) { # print this help and exit
             usage()
             exit
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+( |$)")) { # create a rrd base with given RRA steps
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f +[0-9]+(:[0-9]+)*$")) { # specify a new freq list
+            freq_list = _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i], "-f$")) { # autocreate a new freq list
+            ex("rm -vf " FREQ_CACHE, 2)
+        # regexps for arg matching somewhat sloppy to avoid clutter in usage() text
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+$")) { # create a rrd base with given RRA steps
             rrdbase_rrasteps = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-s +[0-9]+( |$)")) { # display time frame start in the past (in secs)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-s +[0-9]+$")) { # display time frame start in the past (in secs)
             rrdgraph_histstart = strftime("%s") - _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w +[0-9]+( |$)")) { # display time frame size (in secs)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w +[0-9]+$")) { # display time frame size (in secs)
             rrdgraph_histsize = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i], "-i")) { # ignore errors reported by dvbtune
+        } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
             ++dvbtune_ignerrs
         } else {
             usage()
             ++ERR; exit
         }
     }
-    if (!ex("ls " RRDBASE, 0 ,"^(" RRDBASE ")$")) {
+    if (retrieve_down_freqs(freq_list)) {
+        # since the RRD data source readings might have changed:
         if (!rrdbase_rrasteps) rrdbase_rrasteps = RRDBASE_RRASTEPS
-        PRF("no RRD base found: ")
+        PR("(re)creating the freq cache implies renewal of the rrdbase")
+    } else if (!ex("ls " RRDBASE, 0 ,"^(" RRDBASE ")$")) {
+        if (!rrdbase_rrasteps) rrdbase_rrasteps = RRDBASE_RRASTEPS
+        PR("no RRD base found")
     }
     if (rrdbase_rrasteps) PR("create a RRD base with RRA step size of " rrdbase_rrasteps)
     if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
     PR("display time frame start: " (rrdgraph_histstart == "now" ? "now" : strftime("%T", rrdgraph_histstart)))
     PR("display time frame size:  " rrdgraph_histsize "s")
-    
-    retrieve_down_freqs()
     assemble_rrdcreate_cmd()
     assemble_rrdgraph_cmd()
     if (rrdbase_rrasteps) {
