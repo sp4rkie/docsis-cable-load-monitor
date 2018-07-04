@@ -49,9 +49,10 @@ The program then will start to meter the cable load. The raw results are shown o
 
 An example console output for 16 downstream frequencies could look like this:
 
-        display time frame start: now
-        display time frame size:  3600s
-        frequencies in use: [ 16 ] 546 530 538 554 562 570 578 586 594 602 610 618 626 634 642 650 
+        reading downstream channel frequencies from cache
+        downstream channel frequencies now in use: [ 16 ] 546 530 538 554 562 570 578 586 594 602 610 618 626 634 642 650
+        point in time where the displayed graph ends: now
+        time span covered by the displayed graph: 3600s
 
         14:42:20:   4967 11105  3123  7030  2538   264  1519   746     2   109     3    82   110     7   873   124  32602
         14:42:45:   5293  3108  2228  2422   649   183   207   298   130    66   274    24     8   141     3   135  15169
