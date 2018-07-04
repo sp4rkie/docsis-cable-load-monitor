@@ -284,6 +284,9 @@ func usage( \
 func process_cmdline( \
     freq_list, i)
 {
+    #
+    # regexps for arg matching are kept somewhat sloppy to avoid clutter in usage() text output
+    #
     for (i = 2; i < _ARGC; ++i) {
         if (match(_ARGV[i], "-h")) { # print this help and exit
             usage()
@@ -293,7 +296,6 @@ func process_cmdline( \
             ++i
         } else if (match(_ARGV[i], "-f$")) { # retrieve actual downstream channel frequencies
             ex("rm -vf " FREQ_CACHE, 2)
-        # regexps for arg matching somewhat sloppy to avoid clutter in usage() text
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+$")) { # create a RRD base with given RRA steps
             rrdbase_rrasteps = _ARGV[i + 1]
             ++i
