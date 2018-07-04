@@ -23,25 +23,29 @@ func setup( \
     PRP(CLARGS "\n")
 
     LD_PL = "LD_PRELOAD=/opt/lib/libmediaclient.so "
+
+    CABLE_MODEM_IP = "192.168.100.1"
+
+    FREQ_CACHE = INSTPATH "CableLoadMonitor.fcache"
+    FREQ_FACTOR = 1000000
+
     RRDBASE = INSTPATH "CableLoadMonitor.rrd"
     RRDBASE_RRASTEPS = 10                       # default to 10s
+    RRDBASE_HISTSIZE = 60 * 60 * 24 * 7         # default to 1 week
 
     RRDGRAPH = INSTPATH "CableLoadMonitor.png"
     RRDGRAPH_TMP = RRDGRAPH "_"
     RRDGRAPH_WIDTH = 1500                       # results in 1581x1111
     RRDGRAPH_HEIGHT = 800
-    RRDGRAPH_HISTSTART = "now"                  # start from now
+    RRDGRAPH_HISTEND = "now"                    # displayed history ends now
     RRDGRAPH_HISTSIZE = 3600                    # display the past 1h
-    RRDGRAPH_Y_UPPER_LIMIT = 200000000          # scale Y axis to this minimum
-
-    CABLE_MODEM_IP = "192.168.100.1"
-    FREQ_CACHE = INSTPATH "CableLoadMonitor.fcache"
-    FREQ_FACTOR = 1000000
+    RRDGRAPH_Y_UPPER_LIMIT = 200                # scale Y axis to this minimum
 
     # ---
-#   rrdbase_rrasteps = RRDBASE_RRASTEPS
+#   rrdbase_rrasteps = RRDBASE_RRASTEPS         # an assignment triggers RDD base creation
+    rrdbase_histsize = RRDBASE_HISTSIZE   
+    rrdgraph_histend = RRDGRAPH_HISTEND
     rrdgraph_histsize = RRDGRAPH_HISTSIZE
-    rrdgraph_histstart = RRDGRAPH_HISTSTART
 
     # --- define this to display a black theme
     if (++use_black_theme) {
@@ -158,7 +162,7 @@ func assemble_rrdcreate_cmd( \
         CMD = CMD sprintf("DS:f%02d:GAUGE:120:U:U", i)     " \\\\\n"
     }
     CMD = CMD sprintf("DS:sum:GAUGE:120:U:U")              " \\\\\n"
-    CMD = CMD sprintf("RRA:AVERAGE:0.1:" rrdbase_rrasteps ":86400")
+    CMD = CMD sprintf("RRA:AVERAGE:0.1:" rrdbase_rrasteps ":" rrdbase_histsize)
 
     RRDCREATE_CMD = CMD
 }
@@ -166,10 +170,10 @@ func assemble_rrdcreate_cmd( \
 func assemble_rrdgraph_cmd( \
     CMD, i)
 {
-    CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT                      " \\\\\n" \
+    CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT * FREQ_FACTOR        " \\\\\n" \
           "--title=\"Graph generated at \`date\`\""                                                    " \\\\\n" \
           "-w " RRDGRAPH_WIDTH " -h " RRDGRAPH_HEIGHT                                                  " \\\\\n" \
-          "--end " rrdgraph_histstart " --start end-" rrdgraph_histsize "s"                            " \\\\\n" 
+          "--end " rrdgraph_histend " --start end-" rrdgraph_histsize "s"                            " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
     CMD = CMD IF_BLACK_THEME                                                                           " \\\\\n"
     CMD = CMD IF_2ND_YAXIS                                                                             " \\\\\n"
@@ -257,6 +261,7 @@ func watch_the_scenery( \
 {
     while (1) {
         generate_rrdgraph()
+        if (graph_only) exit
         scan_down_channels()
     }
 }
@@ -292,12 +297,17 @@ func process_cmdline( \
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+$")) { # create a RRD base with given RRA steps
             rrdbase_rrasteps = _ARGV[i + 1]
             ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-r +[0-9]+$")) { # recording history size (only with -c, in secs)
+            rrdbase_histsize = _ARGV[i + 1]
+            ++i
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-e +[0-9]+$")) { # point in time where the displayed graph ends (in secs)
-            rrdgraph_histstart = strftime("%s") - _ARGV[i + 1]
+            rrdgraph_histend = strftime("%s") - _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w +[0-9]+$")) { # time span covered by the displayed graph (in secs)
             rrdgraph_histsize = _ARGV[i + 1]
             ++i
+        } else if (match(_ARGV[i], "-g$")) { # generate the graph from RRD base and exit
+            ++graph_only
         } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
             ++dvbtune_ignerrs
         } else {
@@ -313,9 +323,17 @@ func process_cmdline( \
         if (!rrdbase_rrasteps) rrdbase_rrasteps = RRDBASE_RRASTEPS
         PR("no RRD base found")
     }
-    if (rrdbase_rrasteps) PR("create a RRD base with RRA step size of " rrdbase_rrasteps)
+    if (rrdbase_rrasteps) {
+        PR("create a RRD base with RRA step size of " rrdbase_rrasteps)
+        PR("recording history size: "                                               \
+            int(rrdbase_histsize                  / (60 * 60 * 24)) " day(s) "      \
+            int(rrdbase_histsize % (60 * 60 * 24) / (60 * 60     )) " hour(s) "     \
+            int(rrdbase_histsize % (60 * 60     ) / (60          )) " minute(s) "   \
+            int(rrdbase_histsize % (60          )                 ) " second(s) "   \
+        )
+    }
     if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
-    PR("point in time where the displayed graph ends: " (rrdgraph_histstart == "now" ? "now" : strftime("%T", rrdgraph_histstart)))
+    PR("point in time where the displayed graph ends: " (rrdgraph_histend == "now" ? "now" : strftime("%T", rrdgraph_histend)))
     PR("time span covered by the displayed graph: " rrdgraph_histsize "s")
     assemble_rrdcreate_cmd()
     assemble_rrdgraph_cmd()
