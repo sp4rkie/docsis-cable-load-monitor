@@ -40,14 +40,14 @@ how to use it
 
         sh CableLoadMonitor
 
-this first will try to automatically retrieve the downstream frequencies in use.
+this first will try to automatically retrieve the downstream channel frequencies in use.
 Currently this will work only for an Technicolor TC4400 DOCSIS modem. If this is not available you must provide the
 frequency list manually by means of the '-f' option (see below). 
 The program then will start to meter the cable load. The raw results are shown on the console.
 
 - alphanumeric support
 
-An example console output for 16 downstream frequencies could look like this:
+An example console output for 16 downstream channel frequencies could look like this:
 
         reading downstream channel frequencies from cache
         downstream channel frequencies now in use: [ 16 ] 546 530 538 554 562 570 578 586 594 602 610 618 626 634 642 650
@@ -136,5 +136,5 @@ reference
 
 [Auslastung des eigenen Segments ansehen (reloaded)](https://www.unitymediaforum.de/viewtopic.php?f=53&t=37095)
 
-[Installation unter Linux (allgemein)](http://support.sundtek.com/index.php/topic,2.0.html)
+[Installation unter Linux (allgemein)](https://support.sundtek.com/index.php?topic=2.0)
 
