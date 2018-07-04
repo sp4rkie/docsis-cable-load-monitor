@@ -52,8 +52,9 @@ An example console output for 16 downstream frequencies could look like this:
         reading downstream channel frequencies from cache
         downstream channel frequencies now in use: [ 16 ] 546 530 538 554 562 570 578 586 594 602 610 618 626 634 642 650
         point in time where the displayed graph ends: now
-        time span covered by the displayed graph: 3600s
+        time span covered by the displayed graph: 840s
 
+        [...]
         14:42:20:   4967 11105  3123  7030  2538   264  1519   746     2   109     3    82   110     7   873   124  32602
         14:42:45:   5293  3108  2228  2422   649   183   207   298   130    66   274    24     8   141     3   135  15169
         14:43:09:   2779  2298  4882  4094   454   752  2262  1015    16     4    60    55   112    89   166     6  19044
@@ -97,6 +98,7 @@ An example console output for 16 downstream frequencies could look like this:
         14:55:36:   7724  2853  2482  2490    76   373   983   511     9     0     3    12    33     6    57    23  17635
         14:56:01:   3421  2908  2267  2259   100   573   828  1873    89    16    14    14     9     9     7     6  14393
         14:56:26:   7939  2262  2315  2416   121    90  1098   463   102    32    75    77    25     5     9     4  17033
+        [...]
 
 The lines start with the time of measurement followed by 16 values representing the cable load (in kbit/s) for each down channel. The last value is the overall sum. 
 Ideally we would take a snapshot of all 16 values at the same time. Since we can receive only one frequency at a given time we collect the values sequentially.
