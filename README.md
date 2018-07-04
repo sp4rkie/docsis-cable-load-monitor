@@ -12,7 +12,7 @@ required hardware
 
 - basically any linux machine with Linux DVB API (Version 3, Version 5.x) and DVB-C support is suitable
 - to ease things further following components are recommended:
-    - Raspberry Pi (e.g. Pi 3 Model B)
+    - Raspberry Pi (e.g. Pi 3 Model B, earlier B models may also work)
     - TV stick: Sundtek MediaTV Pro III (DVB-C/T/T2, FM-Radio, AnalogTV)
 
 software installation
@@ -112,13 +112,13 @@ The metered values start moderately at about 20Mbit/s. At 14:50 a download with 
 - command line options
 
         Usage: CableLoadMonitor
-          -h                   - print this help and exit
-          -c +[0-9]+( |$)      - create a rrd base with given RRA steps
-          -s +[0-9]+( |$)      - display time frame start in the past (in secs)
-          -w +[0-9]+( |$)      - display time frame size (in secs)
-          -i                   - ignore errors reported by dvbtune
-
-[ incomplete ]
+          -h                    - print this help and exit
+          -f +[0-9]+(:[0-9]+)*$ - manually specify downstream channel frequencies
+          -f$                   - retrieve actual downstream channel frequencies
+          -c +[0-9]+$           - create a RRD base with given RRA steps
+          -e +[0-9]+$           - point in time where the displayed graph ends (in secs)
+          -w +[0-9]+$           - time span covered by the displayed graph (in secs)
+          -i$                   - ignore errors reported by dvbtune
 
 - diagnosis
 

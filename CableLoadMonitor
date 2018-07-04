@@ -8,8 +8,6 @@
 # https://github.com/sp4rkie/docsis-cable-load-monitor
 #
 
-export LD_PRELOAD=/opt/lib/libmediaclient.so
-
 cat > $0_$$.awk << !
 
 func setup( \
@@ -24,6 +22,7 @@ func setup( \
     setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`hostname`", "$R_")
     PRP(CLARGS "\n")
 
+    LD_PL = "LD_PRELOAD=/opt/lib/libmediaclient.so "
     RRDBASE = INSTPATH "CableLoadMonitor.rrd"
     RRDBASE_RRASTEPS = 10                       # default to 10s
 
@@ -97,23 +96,23 @@ func retrieve_down_freqs(freqs, \
     URL = "http://" CABLE_MODEM_IP "/cmconnectionstatus.html"
 
     if (freqs) {
-        PR("reading freqs from command line")
+        PR("reading downstream channel frequencies from command line")
         if (!set_freqs(freqs)) {
-            exit_("can't handle freq specification")
+            exit_("can't handle the given downstream channel frequency specification")
         }
         print freqs > FREQ_CACHE; close(FREQ_CACHE)
         ++cleared_cache
     } else if (ex("ls " FREQ_CACHE, 0 ,"^(" FREQ_CACHE ")$")) {
-        PR("reading freqs from cache")
+        PR("reading downstream channel frequencies from cache")
         getline freqs < FREQ_CACHE; close(FREQ_CACHE)
         if (!set_freqs(freqs)) {
-            exit_("invalid freq cache")
+            exit_("invalid downstream channel frequency cache")
         }
     } else {
         #
         # specific to TC4400 yet
         #
-        PR("trying to retrieve freqs from TC4400 modem")
+        PR("trying to retrieve downstream channel frequencies from TC4400 modem")
         WGET = "echo; wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
         LYNX = "lynx -nolist -width 300 -dump -stdin"
         while ((line = ex_line(WGET)) != -1) {
@@ -138,7 +137,7 @@ func retrieve_down_freqs(freqs, \
         print freqs > FREQ_CACHE; close(FREQ_CACHE)
         ++cleared_cache
     }
-    PRF("frequencies now in use: ")
+    PRF("downstream channel frequencies now in use: ")
     if (!FREQ_CNT) {
         exit_("could not retrieve any")
     }
@@ -211,7 +210,7 @@ func scan_down_channels( \
     for (i = 0; i < FREQ_CNT; ++i) {
 #        tuning via mediaclient not in use ATM
 #        ex("timeout 10 /opt/bin/mediaclient -d /dev/dvb/adapter0/frontend0 -m DVBC -f " FREQ[i] * FREQ_FACTOR " -M Q256 -S 6952000")
-        ex("timeout 10 dvbtune -f " FREQ[i] * FREQ_FACTOR " -s 6952 -qam 256", 0, "Bit error rate: ([0-9]+)$", a)
+        ex(LD_PL "timeout 10 dvbtune -f " FREQ[i] * FREQ_FACTOR " -s 6952 -qam 256", 0, "Bit error rate: ([0-9]+)$", a)
         a[1] += 0
         if (a[1] && !dvbtune_ignerrs) {
             PR("\n\n" a[0] ", please check your cables\n")
@@ -224,7 +223,7 @@ func scan_down_channels( \
         # the arbitrarily chosen stop value of 80000 appears to be high enough to even 
         # handle high bandwidths with enough accuracy.
         #
-        if (!ex("timeout 1 dvbsnoop -s bandwidth 8190 -n 80000", 0, "^## PID:.*Avrg: +([^ ]+) ", a)) {
+        if (!ex(LD_PL "timeout 1 dvbsnoop -s bandwidth 8190 -n 80000", 0, "^## PID:.*Avrg: +([^ ]+) ", a)) {
             exit_("dvbsnoop fails")
         }
         BWIDTH_OF[i] = int(a[1] + 0.5)
@@ -269,7 +268,7 @@ func usage( \
     while ((line = ex_line("cat " PRGNAME)) != -1) {
         if (locked) {
             if (match(line, "match[^,]+, \"(.+)\"[^\"]+# (.*)$", a)) {
-                PR(sprintf("  %-25s - %s", a[1], a[2]))
+                PR(sprintf("  %-21s - %s", a[1], a[2]))
             }
         } else {
             if (match(line, "^func process_cmdline")) ++locked
@@ -284,19 +283,19 @@ func process_cmdline( \
         if (match(_ARGV[i], "-h")) { # print this help and exit
             usage()
             exit
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f +[0-9]+(:[0-9]+)*$")) { # specify a new freq list
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f +[0-9]+(:[0-9]+)*$")) { # manually specify downstream channel frequencies
             freq_list = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i], "-f$")) { # autocreate a new freq list
+        } else if (match(_ARGV[i], "-f$")) { # retrieve actual downstream channel frequencies
             ex("rm -vf " FREQ_CACHE, 2)
         # regexps for arg matching somewhat sloppy to avoid clutter in usage() text
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+$")) { # create a rrd base with given RRA steps
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+$")) { # create a RRD base with given RRA steps
             rrdbase_rrasteps = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-s +[0-9]+$")) { # display time frame start in the past (in secs)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-e +[0-9]+$")) { # point in time where the displayed graph ends (in secs)
             rrdgraph_histstart = strftime("%s") - _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w +[0-9]+$")) { # display time frame size (in secs)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w +[0-9]+$")) { # time span covered by the displayed graph (in secs)
             rrdgraph_histsize = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
@@ -309,15 +308,15 @@ func process_cmdline( \
     if (retrieve_down_freqs(freq_list)) {
         # since the RRD data source readings might have changed:
         if (!rrdbase_rrasteps) rrdbase_rrasteps = RRDBASE_RRASTEPS
-        PR("(re)creating the freq cache implies renewal of the rrdbase")
+        PR("(re)creating the channel frequency cache implies renewal of the RRD base")
     } else if (!ex("ls " RRDBASE, 0 ,"^(" RRDBASE ")$")) {
         if (!rrdbase_rrasteps) rrdbase_rrasteps = RRDBASE_RRASTEPS
         PR("no RRD base found")
     }
     if (rrdbase_rrasteps) PR("create a RRD base with RRA step size of " rrdbase_rrasteps)
     if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
-    PR("display time frame start: " (rrdgraph_histstart == "now" ? "now" : strftime("%T", rrdgraph_histstart)))
-    PR("display time frame size:  " rrdgraph_histsize "s")
+    PR("point in time where the displayed graph ends: " (rrdgraph_histstart == "now" ? "now" : strftime("%T", rrdgraph_histstart)))
+    PR("time span covered by the displayed graph: " rrdgraph_histsize "s")
     assemble_rrdcreate_cmd()
     assemble_rrdgraph_cmd()
     if (rrdbase_rrasteps) {
