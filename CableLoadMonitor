@@ -168,12 +168,17 @@ func assemble_rrdcreate_cmd( \
 }
 
 func assemble_rrdgraph_cmd( \
-    CMD, i)
+    group, GROUPS, CMD, i, k)
 {
+    # use the first version if interested in average and min too
+    GROUPS = "MAX:max:MIN:min:LAST:last:AVERAGE:avg"
+    GROUPS = "MAX:max:LAST:last"
+    split(GROUPS, group, ":")
+
     CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT * FREQ_FACTOR        " \\\\\n" \
           "--title=\"Graph generated at \`date\`\""                                                    " \\\\\n" \
           "-w " RRDGRAPH_WIDTH " -h " RRDGRAPH_HEIGHT                                                  " \\\\\n" \
-          "--end " rrdgraph_histend " --start end-" rrdgraph_histsize "s"                            " \\\\\n" 
+          "--end " rrdgraph_histend " --start end-" rrdgraph_histsize "s"                              " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
     CMD = CMD IF_BLACK_THEME                                                                           " \\\\\n"
     CMD = CMD IF_2ND_YAXIS                                                                             " \\\\\n"
@@ -193,16 +198,13 @@ func assemble_rrdgraph_cmd( \
     CMD = CMD                                                                                          " \\\\\n"
     CMD = CMD "\"LINE:sum#00ff00:sum\\\l\""                                                            " \\\\\n"
     CMD = CMD                                                                                          " \\\\\n"
-    for (i = 0; i < FREQ_CNT; ++i) {
-        CMD = CMD sprintf("\"GPRINT:f%02d:LAST:%d last\\\: %%6.0lf %%s\"", i, FREQ[i])                 " \\\\\n"
-        CMD = CMD sprintf("\"GPRINT:f%02d:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i])                  " \\\\\n"
-        CMD = CMD sprintf("\"GPRINT:f%02d:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i])                      " \\\\\n"
-        CMD = CMD sprintf("\"GPRINT:f%02d:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i])                  " \\\\\n"
+    for (k = 1; group[k]; k += 2) {
+        for (i = 0; i < FREQ_CNT; ++i) {
+            CMD = CMD sprintf("\"GPRINT:f%02d:%s:%%3.0lf %%s\"", i, group[k])                          " \\\\\n"
+        }
+        CMD = CMD sprintf("\"GPRINT:%s:%s:%%3.0lf %%s\"", "sum", group[k])
+        CMD = CMD "\"    " group[k + 1] "\\\l\""                                                       " \\\\\n"
     }
-    CMD = CMD sprintf("\"GPRINT:sum:LAST:sum last\\\: %%6.0lf %%s\"", i, FREQ[i])                      " \\\\\n"
-    CMD = CMD sprintf("\"GPRINT:sum:AVERAGE:avg\\\: %%6.0lf %%s\"", i, FREQ[i])                        " \\\\\n"
-    CMD = CMD sprintf("\"GPRINT:sum:MIN:min\\\: %%6.0lf %%s\"", i, FREQ[i])                            " \\\\\n"
-    CMD = CMD sprintf("\"GPRINT:sum:MAX:max\\\: %%6.0lf %%s\\\j\"", i, FREQ[i])                       #" \\\\\n"
 
     RRDGRAPH_CMD = CMD
 }
