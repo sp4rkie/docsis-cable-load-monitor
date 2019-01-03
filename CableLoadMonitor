@@ -275,7 +275,7 @@ func usage( \
     while ((line = ex_line("cat " PRGNAME)) != -1) {
         if (locked) {
             if (match(line, "match[^,]+, \"(.+)\"[^\"]+# (.*)$", a)) {
-                PR(sprintf("  %-21s - %s", a[1], a[2]))
+                PR(sprintf("  %-21s - %s", gensub("\\\\$", "", "g", a[1]), a[2]))
             }
         } else {
             if (match(line, "^func process_cmdline")) ++locked

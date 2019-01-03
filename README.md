@@ -112,7 +112,7 @@ The program also generates some graphics by means of the 'rrdtool' package. The 
 
 The metered values start moderately at about 20Mbit/s. At 14:50 a download with 120Mbit/s initiates spanning a period of about 2 minutes. The values peak in 140Mbit/s reflecting the sum of 20Mbit/s + 120Mbit/s.
 
-Another sample with actual theme:
+Sample graph with newer theme:
 
 ![alt text](CableLoadMonitor_new.png "Title")
 
@@ -120,14 +120,14 @@ Another sample with actual theme:
 
         Usage: CableLoadMonitor
           -h                    - print this help and exit
-          -f +[0-9]+(:[0-9]+)*$ - manually specify downstream channel frequencies
-          -f$                   - retrieve actual downstream channel frequencies
-          -c +[0-9]+$           - create a RRD base with given RRA steps
-          -r +[0-9]+$           - recording history size (only with -c, in secs)
-          -e +[0-9]+$           - point in time where the displayed graph ends (in secs)
-          -w +[0-9]+$           - time span covered by the displayed graph (in secs)
-          -g$                   - generate the graph from RRD base and exit
-          -i$                   - ignore errors reported by dvbtune
+          -f +[0-9]+(:[0-9]+)*  - manually specify downstream channel frequencies
+          -f                    - retrieve actual downstream channel frequencies
+          -c +[0-9]+            - create a RRD base with given RRA steps
+          -r +[0-9]+            - recording history size (only with -c, in secs)
+          -e +[0-9]+            - point in time where the displayed graph ends (in secs)
+          -w +[0-9]+            - time span covered by the displayed graph (in secs)
+          -g                    - generate the graph from RRD base and exit
+          -i                    - ignore errors reported by dvbtune
 
 - diagnosis
 
