@@ -49,12 +49,13 @@ awk '{
     # for some unknown reason "CM Hardware Address" sometimes is left empty ->
     # ignore this to avoid false positives. the value does not change anyway.
     if (match($0, "CM Hardware Address:")) $0 = "c_0"
+    $0 = gensub(" (\\?\\?\\?|Mon) ", " XXX ", "g")
 
     print
     
 '} < ${TMPFILE}_raw > ${TMPFILE}_new
 
 [ -s ${TMPFILE}_new ] || { echo no modem data available; exit; }
-[ -s ${TMPFILE}_old ] && diff -w ${TMPFILE}_old ${TMPFILE}_new
+[ -s ${TMPFILE}_old ] && diff -Bw -I ------------ ${TMPFILE}_old ${TMPFILE}_new
 mv ${TMPFILE}_new ${TMPFILE}_old
 
