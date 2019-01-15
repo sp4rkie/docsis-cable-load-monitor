@@ -261,6 +261,13 @@ func generate_rrdgraph( \
 func watch_the_scenery( \
     )
 {
+    if (!graph_only) {
+        #
+        # * Silicon Labs Si2168 card not compatible? · Issue #1 · sp4rkie/docsis-cable-load-monitor
+        # https://github.com/sp4rkie/docsis-cable-load-monitor/issues/1
+        #
+        ex("echo 0 | sudo tee -a /sys/module/dvb_core/parameters/dvb_powerdown_on_sleep")
+    }
     while (1) {
         generate_rrdgraph()
         if (graph_only) exit
