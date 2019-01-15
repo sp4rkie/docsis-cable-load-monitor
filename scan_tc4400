@@ -5,6 +5,8 @@
 #
 # add this to your crontab to stay informed about the modem status
 #
+# https://github.com/sp4rkie/docsis-cable-load-monitor
+#
 
 CABLE_MODEM_IP=192.168.100.1
 TMPFILE=/tmp/scan_tc4400

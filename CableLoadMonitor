@@ -30,8 +30,8 @@ func setup( \
     FREQ_FACTOR = 1000000
 
     RRDBASE = INSTPATH "CableLoadMonitor.rrd"
-    RRDBASE_RRASTEPS = 10                       # default to 10s
-    RRDBASE_HISTSIZE = 60 * 60 * 24 * 7         # default to 1 week
+    RRDBASE_RRASTEPS = 10                       # defaults to 10s
+    RRDBASE_HISTSIZE = 60 * 60 * 24 * 7         # defaults to 1 week
 
     RRDGRAPH = INSTPATH "CableLoadMonitor.png"
     RRDGRAPH_TMP = RRDGRAPH "_"
