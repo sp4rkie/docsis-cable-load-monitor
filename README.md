@@ -18,17 +18,17 @@ required hardware
 software installation
 ---------------------
 
-- first Raspbian has to be installed on the RPi: [Download Raspbian for Raspberry Pi](https://www.raspberrypi.org/downloads/raspbian/)
+- first install Raspbian on your RPi: [Download Raspbian for Raspberry Pi](https://www.raspberrypi.org/downloads/raspbian/)
 - after this the following additional packages are required:
         
         sudo apt install wget gawk lynx dvbsnoop dvbtune rrdtool feh
 
-- installation of the driver for Sundtek MediaTV Pro:
+- Sundtek MediaTV Pro driver installation:
 
         wget http://www.sundtek.de/media/sundtek_installer_180507.101237.sh
         sudo sh sundtek_installer_180507.101237.sh -service -nolirc -noautostart
 
-- installation of the load monitoring tool:
+- finally install the load monitoring tool:
 
         sudo wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/l5.awklib -O /usr/local/lib/l5.awklib
         wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/CableLoadMonitor
@@ -115,6 +115,10 @@ The metered values start moderately at about 20Mbit/s. At 14:50 a download with 
 Sample graph with a newer theme showing a 24h recording:
 
 ![alt text](CableLoadMonitor_new.png "Title")
+
+Sample graph with a newer theme showing a 7d recording:
+
+![alt text](CableLoadMonitor_7d.png "Title")
 
 - command line options
 
