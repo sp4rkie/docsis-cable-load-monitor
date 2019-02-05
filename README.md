@@ -136,7 +136,7 @@ Sample graph with a newer theme showing a 7d recording:
         defaults:
           -c 10           # 10 secs
           -r 604800       # 1 week
-          -e 1549383438   # now
+          -e <epoch>      # now
           -w 3600         # 1 hour
 
 - diagnosis
