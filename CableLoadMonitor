@@ -288,6 +288,11 @@ func usage( \
             if (match(line, "^func process_cmdline")) ++locked
         }
     }
+    PR("\ndefaults:")
+    PR("  -c " sprintf("%-10d", RRDBASE_RRASTEPS) "   # 10 secs")
+    PR("  -r " sprintf("%-10d", RRDBASE_HISTSIZE) "   # 1 week")
+    PR("  -e " sprintf("%-10d", strftime("%s")) "   # now")
+    PR("  -w " sprintf("%-10d", RRDGRAPH_HISTSIZE) "   # 1 hour")
 }
 
 func process_cmdline( \
@@ -303,9 +308,9 @@ func process_cmdline( \
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f +[0-9]+(:[0-9]+)*$")) { # manually specify downstream channel frequencies
             freq_list = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i], "-f$")) { # retrieve actual downstream channel frequencies
+        } else if (match(_ARGV[i], "-f$")) { # force retrieval of current downstream channel freqs
             ex("rm -vf " FREQ_CACHE, 2)
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+$")) { # create a RRD base with given RRA steps
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+$")) { # create a RRD base with given RRA steps (in secs)
             rrdbase_rrasteps = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-r +[0-9]+$")) { # recording history size (only with -c, in secs)
