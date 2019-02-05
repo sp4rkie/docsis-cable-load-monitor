@@ -133,6 +133,12 @@ Sample graph with a newer theme showing a 7d recording:
           -g                    - generate the graph from RRD base and exit
           -i                    - ignore errors reported by dvbtune
 
+        defaults:
+          -c 10           # 10 secs
+          -r 604800       # 1 week
+          -e 1549383438   # now
+          -w 3600         # 1 hour
+
 - diagnosis
 
 The program logs all activity to file `CableLoadMonitor.log`. This will be the first place to look at if something went wrong.
