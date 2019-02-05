@@ -25,7 +25,7 @@ software installation
 
 - Sundtek MediaTV Pro driver installation:
 
-        wget http://www.sundtek.de/media/sundtek_installer_180507.101237.sh
+        wget http://www.sundtek.de/media/sundtek_installer_181220.135032.sh
         sudo sh sundtek_installer_180507.101237.sh -service -nolirc -noautostart
 
 - finally install the load monitoring tool:
@@ -125,8 +125,8 @@ Sample graph with a newer theme showing a 7d recording:
         Usage: CableLoadMonitor
           -h                    - print this help and exit
           -f +[0-9]+(:[0-9]+)*  - manually specify downstream channel frequencies
-          -f                    - retrieve actual downstream channel frequencies
-          -c +[0-9]+            - create a RRD base with given RRA steps
+          -f                    - force retrieval of current downstream channel freqs
+          -c +[0-9]+            - create a RRD base with given RRA steps (in secs)
           -r +[0-9]+            - recording history size (only with -c, in secs)
           -e +[0-9]+            - point in time where the displayed graph ends (in secs)
           -w +[0-9]+            - time span covered by the displayed graph (in secs)
