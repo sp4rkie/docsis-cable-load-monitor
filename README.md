@@ -26,7 +26,7 @@ software installation
 - Sundtek MediaTV Pro driver installation:
 
         wget http://www.sundtek.de/media/sundtek_installer_181220.135032.sh
-        sudo sh sundtek_installer_180507.101237.sh -service -nolirc -noautostart
+        sudo sh sundtek_installer_181220.135032.sh -service -nolirc -noautostart
 
 - finally install the load monitoring tool:
 
