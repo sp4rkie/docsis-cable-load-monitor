@@ -106,7 +106,11 @@ For 16 channels this typically takes about 25s what seems to be acceptable.
 
 - graphic support
 
-The program also generates some graphics by means of the 'rrdtool' package. The alphanumeric example from above looks like this:
+The program also generates some graphics by means of the 'rrdtool' package. You can visualize this issuing
+
+        feh -d --reload 10 CableLoadMonitor.png
+
+The alphanumeric example from above looks like this:
 
 ![alt text](CableLoadMonitor.png "Title")
 
@@ -124,12 +128,12 @@ Sample graph with a newer theme showing a 7d recording:
 
         Usage: CableLoadMonitor
           -h                    - print this help and exit
-          -f +[0-9]+(:[0-9]+)*  - manually specify downstream channel frequencies
+          -f [0-9]+(:[0-9]+)*   - manually specify downstream channel frequencies
           -f                    - force retrieval of current downstream channel freqs
-          -c +[0-9]+            - create a RRD base with given RRA steps (in secs)
-          -r +[0-9]+            - recording history size (only with -c, in secs)
-          -e +[0-9]+            - point in time where the displayed graph ends (in secs)
-          -w +[0-9]+            - time span covered by the displayed graph (in secs)
+          -c [0-9]+             - create a RRD base with given RRA steps (in secs)
+          -r [0-9]+             - recording history size (only with -c, in secs)
+          -e [0-9]+             - point in time where the displayed graph ends (in secs)
+          -w [0-9]+             - time span covered by the displayed graph (in secs)
           -g                    - generate the graph from RRD base and exit
           -i                    - ignore errors reported by dvbtune
 
