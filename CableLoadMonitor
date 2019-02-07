@@ -261,12 +261,23 @@ func generate_rrdgraph( \
 func watch_the_scenery( \
     )
 {
+    #
+    # some inital setup specific to certain devices. this may fail 
+    # on one or another device. don't care.
+    #
     if (!graph_only) {
+
         #
         # * Silicon Labs Si2168 card not compatible? · Issue #1 · sp4rkie/docsis-cable-load-monitor
         # https://github.com/sp4rkie/docsis-cable-load-monitor/issues/1
         #
         ex("echo 0 | sudo tee -a /sys/module/dvb_core/parameters/dvb_powerdown_on_sleep")
+
+        #
+        # * set dtvmode
+        # https://www.unitymediaforum.de/viewtopic.php?p=428995#p428995
+        #
+        ex("/opt/bin/mediaclient -d /dev/dvb/adapter0/frontend0 --setdtvmode=DVBC")
     }
     while (1) {
         generate_rrdgraph()
@@ -305,21 +316,21 @@ func process_cmdline( \
         if (match(_ARGV[i], "-h")) { # print this help and exit
             usage()
             exit
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f +[0-9]+(:[0-9]+)*$")) { # manually specify downstream channel frequencies
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f [0-9]+(:[0-9]+)*$")) { # manually specify downstream channel frequencies
             freq_list = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i], "-f$")) { # force retrieval of current downstream channel freqs
             ex("rm -vf " FREQ_CACHE, 2)
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c +[0-9]+$")) { # create a RRD base with given RRA steps (in secs)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c [0-9]+$")) { # create a RRD base with given RRA steps (in secs)
             rrdbase_rrasteps = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-r +[0-9]+$")) { # recording history size (only with -c, in secs)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-r [0-9]+$")) { # recording history size (only with -c, in secs)
             rrdbase_histsize = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-e +[0-9]+$")) { # point in time where the displayed graph ends (in secs)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-e [0-9]+$")) { # point in time where the displayed graph ends (in secs)
             rrdgraph_histend = strftime("%s") - _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w +[0-9]+$")) { # time span covered by the displayed graph (in secs)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w [0-9]+$")) { # time span covered by the displayed graph (in secs)
             rrdgraph_histsize = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i], "-g$")) { # generate the graph from RRD base and exit
