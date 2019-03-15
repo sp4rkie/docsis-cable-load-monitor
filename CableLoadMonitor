@@ -26,23 +26,23 @@ func setup( \
 
     CABLE_MODEM_IP = "192.168.100.1"
 
-    FREQ_CACHE = INSTPATH "CableLoadMonitor.fcache"
+    CONF_FILE = INSTPATH "CableLoadMonitor.cfg"
     FREQ_FACTOR = 1000000
 
-    RRDBASE = INSTPATH "CableLoadMonitor.rrd"
+    RRDBASE_FILE = INSTPATH "CableLoadMonitor.rrd"
     RRDBASE_RRASTEPS = 10                       # defaults to 10s
     RRDBASE_HISTSIZE = 60 * 60 * 24 * 7         # defaults to 1 week
 
-    RRDGRAPH = INSTPATH "CableLoadMonitor.png"
-    RRDGRAPH_TMP = RRDGRAPH "_"
+    RRDGRAPH_FILE = INSTPATH "CableLoadMonitor.png"
+    RRDGRAPH_TMP = RRDGRAPH_FILE "_"
     RRDGRAPH_WIDTH = 1500                       # results in 1581x1111
     RRDGRAPH_HEIGHT = 800
     RRDGRAPH_HISTEND = "now"                    # displayed history ends now
-    RRDGRAPH_HISTSIZE = 3600                    # display the past 1h
+    RRDGRAPH_HISTSIZE = 60 * 60                 # display the past 1h
     RRDGRAPH_Y_UPPER_LIMIT = 200                # scale Y axis to this minimum
 
     # ---
-#   rrdbase_rrasteps = RRDBASE_RRASTEPS         # an assignment triggers RDD base creation
+    rrdbase_rrasteps = RRDBASE_RRASTEPS 
     rrdbase_histsize = RRDBASE_HISTSIZE   
     rrdgraph_histend = RRDGRAPH_HISTEND
     rrdgraph_histsize = RRDGRAPH_HISTSIZE
@@ -66,10 +66,26 @@ func setup( \
         IF_2ND_YAXIS = IF_2ND_YAXIS "--right-axis " 1 / IF_2ND_YAXIS_SCALE ":1"    " \\\\\n"
         IF_2ND_YAXIS = IF_2ND_YAXIS "--right-axis-label sum"                       " \\\\\n"
 
-        SUM_DEF = SUM_DEF sprintf("DEF:sum_=" RRDBASE ":sum:AVERAGE", i, i)        " \\\\\n"
+        SUM_DEF = SUM_DEF sprintf("DEF:sum_=" RRDBASE_FILE ":sum:AVERAGE", i, i)   " \\\\\n"
         SUM_DEF = SUM_DEF "CDEF:sum=sum_," IF_2ND_YAXIS_SCALE ",/"                 " \\\\\n"
     } else {
-        SUM_DEF = SUM_DEF sprintf("DEF:sum=" RRDBASE ":sum:AVERAGE", i, i)         " \\\\\n"
+        SUM_DEF = SUM_DEF sprintf("DEF:sum=" RRDBASE_FILE ":sum:AVERAGE", i, i)    " \\\\\n"
+    }
+}
+
+func read_cfg( \
+    line, CMD, a)
+{
+    if (ex("ls " CONF_FILE, 0, "^(" CONF_FILE ")$")) {
+        CMD = "cat " CONF_FILE
+        PR("reading last recently used downstream channel frequencies and RRD parameters")
+        FREQ_SPEC_CFG = ex_line(CMD)
+        while ((line = ex_line(CMD)) != -1) {
+            if (match(line, "^RRA:AVERAGE:.*:([0-9]+):([0-9]+)$", a)) {
+                RRA_STEPS_CFG = a[1]
+                HIST_SIZE_CFG = a[2]
+            }
+        }
     }
 }
 
@@ -95,24 +111,12 @@ func set_freqs(str, \
 }
 
 func retrieve_down_freqs(freqs, \
-    cleared_cache, URL, ignore, line, WGET, LYNX, i, a)
+    URL, ignore, line, WGET, LYNX, i, a)
 {
     URL = "http://" CABLE_MODEM_IP "/cmconnectionstatus.html"
 
-    if (freqs) {
-        PR("reading downstream channel frequencies from command line")
-        if (!set_freqs(freqs)) {
-            exit_("can't handle the given downstream channel frequency specification")
-        }
-        print freqs > FREQ_CACHE; close(FREQ_CACHE)
-        ++cleared_cache
-    } else if (ex("ls " FREQ_CACHE, 0 ,"^(" FREQ_CACHE ")$")) {
-        PR("reading downstream channel frequencies from cache")
-        getline freqs < FREQ_CACHE; close(FREQ_CACHE)
-        if (!set_freqs(freqs)) {
-            exit_("invalid downstream channel frequency cache")
-        }
-    } else {
+    if (freqs == "force_new_scan" || !freqs) {
+
         #
         # specific to TC4400 yet
         #
@@ -134,12 +138,16 @@ func retrieve_down_freqs(freqs, \
         while (LYNX |& getline line > 0) {
             if (match(line, "Locked +SC-QAM +Downstream +Bonded +([0-9]+) ", a)) {
                 FREQ[FREQ_CNT++] = a[1] / FREQ_FACTOR
-                freqs = freqs (freqs ? ":" : "") FREQ[FREQ_CNT - 1]
             }
         }
         close(LYNX)
-        print freqs > FREQ_CACHE; close(FREQ_CACHE)
-        ++cleared_cache
+    } else if (freqs) {
+        PR("evaluating given downstream channel frequencies")
+        if (!set_freqs(freqs)) {
+            exit_("can't handle the given downstream channel frequency specification")
+        }
+    } else {
+        # error -> will exit
     }
     PRF("downstream channel frequencies now in use: ")
     if (!FREQ_CNT) {
@@ -149,22 +157,21 @@ func retrieve_down_freqs(freqs, \
     for (i = 0; i < FREQ_CNT; ++i) {
         PRF(FREQ[i] " ")
         BWIDTH_OF[i] = "na"
+        FREQ_SPEC_NEW = FREQ_SPEC_NEW (FREQ_SPEC_NEW ? ":" : "") FREQ[i]
     }
     PR("")
-    return cleared_cache
 }
 
 func assemble_rrdcreate_cmd( \
     CMD, i)
 {
-    CMD = "rrdtool create " RRDBASE " -s 1"                " \\\\\n"
+    CMD = "rrdtool create " RRDBASE_FILE " -s 1"           " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
         CMD = CMD sprintf("DS:f%02d:GAUGE:120:U:U", i)     " \\\\\n"
     }
     CMD = CMD sprintf("DS:sum:GAUGE:120:U:U")              " \\\\\n"
     CMD = CMD sprintf("RRA:AVERAGE:0.1:" rrdbase_rrasteps ":" rrdbase_histsize)
-
-    RRDCREATE_CMD = CMD
+    RRDB_CCMD_NEW = CMD
 }
 
 func assemble_rrdgraph_cmd( \
@@ -184,7 +191,7 @@ func assemble_rrdgraph_cmd( \
     CMD = CMD IF_2ND_YAXIS                                                                             " \\\\\n"
     CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
-        CMD = CMD sprintf("DEF:f%02d=" RRDBASE ":f%02d:AVERAGE", i, i)                                 " \\\\\n" 
+        CMD = CMD sprintf("DEF:f%02d=" RRDBASE_FILE ":f%02d:AVERAGE", i, i)                            " \\\\\n" 
     }
     CMD = CMD SUM_DEF                                                                                  " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
@@ -205,7 +212,6 @@ func assemble_rrdgraph_cmd( \
         CMD = CMD sprintf("\"GPRINT:%s:%s:%%3.0lf %%s\"", "sum", group[k])
         CMD = CMD "\"    " group[k + 1] "\\\l\""                                                       " \\\\\n"
     }
-
     RRDGRAPH_CMD = CMD
 }
 
@@ -235,7 +241,7 @@ func scan_down_channels( \
         BWIDTH_OF[i] = int(a[1] + 0.5)
         PRF(sprintf("%6s", BWIDTH_OF[i]))
         BWIDTH_SUM = 0
-        RRDUPD_STR = "rrdtool update " RRDBASE " N"
+        RRDUPD_STR = "rrdtool update " RRDBASE_FILE " N"
         for (k = 0; k < FREQ_CNT; ++k) {
             BWIDTH_SUM += BWIDTH_OF[k]
             RRDUPD_STR = RRDUPD_STR ":" BWIDTH_OF[k] * 1000
@@ -255,7 +261,7 @@ func generate_rrdgraph( \
     )
 {
     ex(RRDGRAPH_CMD)
-    ex("mv " RRDGRAPH_TMP " " RRDGRAPH, 2)
+    ex("mv " RRDGRAPH_TMP " " RRDGRAPH_FILE, 2)
 }
 
 func watch_the_scenery( \
@@ -307,8 +313,13 @@ func usage( \
 }
 
 func process_cmdline( \
-    freq_list, i)
+    backup_time, freq_list, i)
 {
+    read_cfg()
+    if (FREQ_SPEC_CFG) freq_list = FREQ_SPEC_CFG
+    if (RRA_STEPS_CFG) rrdbase_rrasteps = RRA_STEPS_CFG
+    if (HIST_SIZE_CFG) rrdbase_histsize = HIST_SIZE_CFG
+
     #
     # regexps for arg matching are kept somewhat sloppy to avoid clutter in usage() text output
     #
@@ -320,7 +331,7 @@ func process_cmdline( \
             freq_list = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i], "-f$")) { # force retrieval of current downstream channel freqs
-            ex("rm -vf " FREQ_CACHE, 2)
+            freq_list = "force_new_scan"
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c [0-9]+$")) { # create a RRD base with given RRA steps (in secs)
             rrdbase_rrasteps = _ARGV[i + 1]
             ++i
@@ -342,30 +353,45 @@ func process_cmdline( \
             ++ERR; exit
         }
     }
-    if (retrieve_down_freqs(freq_list)) {
-        # since the RRD data source readings might have changed:
-        if (!rrdbase_rrasteps) rrdbase_rrasteps = RRDBASE_RRASTEPS
-        PR("(re)creating the channel frequency cache implies renewal of the RRD base")
-    } else if (!ex("ls " RRDBASE, 0 ,"^(" RRDBASE ")$")) {
-        if (!rrdbase_rrasteps) rrdbase_rrasteps = RRDBASE_RRASTEPS
-        PR("no RRD base found")
-    }
-    if (rrdbase_rrasteps) {
-        PR("create a RRD base with RRA step size of " rrdbase_rrasteps)
-        PR("recording history size: "                                               \
-            int(rrdbase_histsize                  / (60 * 60 * 24)) " day(s) "      \
-            int(rrdbase_histsize % (60 * 60 * 24) / (60 * 60     )) " hour(s) "     \
-            int(rrdbase_histsize % (60 * 60     ) / (60          )) " minute(s) "   \
-            int(rrdbase_histsize % (60          )                 ) " second(s) "   \
-        )
-    }
+    retrieve_down_freqs(freq_list) 
+    PR("recording RRA step size: " rrdbase_rrasteps)
+    PR("recording history size: "                                               \
+        int(rrdbase_histsize                  / (60 * 60 * 24)) " day(s) "      \
+        int(rrdbase_histsize % (60 * 60 * 24) / (60 * 60     )) " hour(s) "     \
+        int(rrdbase_histsize % (60 * 60     ) / (60          )) " minute(s) "   \
+        int(rrdbase_histsize % (60          )                 ) " second(s) "   \
+    )
     if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
     PR("point in time where the displayed graph ends: " (rrdgraph_histend == "now" ? "now" : strftime("%T", rrdgraph_histend)))
     PR("time span covered by the displayed graph: " rrdgraph_histsize "s")
-    assemble_rrdcreate_cmd()
+    assemble_rrdcreate_cmd() 
     assemble_rrdgraph_cmd()
-    if (rrdbase_rrasteps) {
-        ex(RRDCREATE_CMD, 2)
+    if (split(FREQ_SPEC_CFG, a, ":") != split(FREQ_SPEC_NEW, a, ":")) {
+        if (FREQ_SPEC_CFG) PR("count of monitored channel frequencies did change")
+        renew_rrd_base += 2
+    } else if (FREQ_SPEC_CFG != FREQ_SPEC_NEW) {
+        if (FREQ_SPEC_CFG) PR("values of monitored channel frequencies did change")
+        renew_rrd_base += 1
+    }
+    if (RRA_STEPS_CFG != rrdbase_rrasteps \
+     || HIST_SIZE_CFG != rrdbase_histsize) {
+        if (RRA_STEPS_CFG) PR("(re)creating RRD base due to changed recording parameters")
+        renew_rrd_base += 2
+    }
+    if (renew_rrd_base) {
+        if (ex("ls " RRDBASE_FILE, 0 ,"^(" RRDBASE_FILE ")$")) {
+            backup_time = strftime(".%Y-%m-%d_%T")
+            PR("backing up old RRD data")
+            ex("cp -va " RRDBASE_FILE " " RRDBASE_FILE backup_time)
+            ex("cp -va " CONF_FILE " " CONF_FILE backup_time)
+        }
+        print FREQ_SPEC_NEW > CONF_FILE
+        print RRDB_CCMD_NEW > CONF_FILE
+        close(CONF_FILE)
+        if (renew_rrd_base > 1) {
+            PR("(re)creating a RRD base with RRA step size of " rrdbase_rrasteps)
+            ex(RRDB_CCMD_NEW, 2)
+        }
     }
     watch_the_scenery()
 }
