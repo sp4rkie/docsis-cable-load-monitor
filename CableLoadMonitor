@@ -383,6 +383,7 @@ func process_cmdline( \
             ++ERR; exit
         }
     }
+    retrieve_down_freqs(freq_list) 
     if (rrdgraph_histend) {
         PR("point in time where the generated graph ends: " strftime("%T", rrdgraph_histend))
         PR("time span covered by the generated graph: " rrdgraph_length "s")
@@ -391,7 +392,6 @@ func process_cmdline( \
         ex("mv " RRDGRAPH_TMP " " RRDGRAPH_NAME RRDGRAPH_EXT)
         exit
     }
-    retrieve_down_freqs(freq_list) 
     PR("recording RRA step size: " rrdbase_rrasteps " seconds")
     PR("recording RRA history size: "                                           \
         int(rrdbase_histsize                  / (60 * 60 * 24)) " day(s) "      \
