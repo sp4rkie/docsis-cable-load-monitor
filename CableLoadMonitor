@@ -22,25 +22,32 @@ func setup( \
     setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`hostname`", "$R_")
     PRP(CLARGS "\n")
 
+    # required if Sundtek hardware is in use as we install with '-service' option
     LD_PL = "LD_PRELOAD=/opt/lib/libmediaclient.so "
 
+    # where to find your TC4400 cable modem (if any)
     CABLE_MODEM_IP = "192.168.100.1"
 
+    # file current recording parameters as incompatible changes must trigger a new RRD generation
     CONF_FILE = INSTPATH "CableLoadMonitor.cfg"
     FREQ_FACTOR = 1000000
 
+    # default RRDBASE
     RRDBASE_FILE = INSTPATH "CableLoadMonitor.rrd"
     RRDBASE_RRASTEPS = 10                       # defaults to 10s
     RRDBASE_HISTSIZE = 60 * 60 * 24 * 7         # defaults to 1 week
 
+    # default RRDGRAPH
     RRDGRAPH_NAME = INSTPATH "CableLoadMonitor"
     RRDGRAPH_EXT = ".png"
     RRDGRAPH_TMP = RRDGRAPH_NAME RRDGRAPH_EXT "_"
-    RRDGRAPH_WIDTH = 1500                       # results in 1581x1111
-    RRDGRAPH_HEIGHT = 800
+    RRDGRAPH_WIDTH = 1500
+    RRDGRAPH_HEIGHT = 1000
     RRDGRAPH_Y_UPPER_LIMIT = 200                # scale Y axis to this minimum
 
+    # feel free to add other history sizes (aka generated graphs) as well
     RRDGRAPHS[RRDGRAPHS_CNT++] = 60 * 60            " |1h"
+    RRDGRAPHS[RRDGRAPHS_CNT++] = 60 * 60 * 6        " |6h"
     RRDGRAPHS[RRDGRAPHS_CNT++] = 60 * 60 * 24       " |1d"
     RRDGRAPHS[RRDGRAPHS_CNT++] = 60 * 60 * 24 * 7   " |7d"
     RRDGRAPHS[RRDGRAPHS_CNT++] = 60 * 60 * 24 * 30  " |30d"
@@ -49,9 +56,8 @@ func setup( \
     # ---
     rrdbase_rrasteps = RRDBASE_RRASTEPS 
     rrdbase_histsize = RRDBASE_HISTSIZE   
-# if cfg manually:
-#    rrdgraph_histend = RRDGRAPH_HISTEND
-#    rrdgraph_histsize = RRDGRAPH_HISTSIZE
+    rrdgraph_width = RRDGRAPH_WIDTH
+    rrdgraph_height = RRDGRAPH_HEIGHT
 
     # --- define this to display a black theme
     if (++use_black_theme) {
@@ -84,7 +90,7 @@ func read_cfg( \
 {
     if (ex("ls " CONF_FILE, 0, "^(" CONF_FILE ")$")) {
         CMD = "cat " CONF_FILE
-        PR("reading last recently used downstream channel frequencies and RRD parameters")
+        #PR("reading last recently used downstream channel frequencies and RRD parameters")
         FREQ_SPEC_CFG = ex_line(CMD)
         while ((line = ex_line(CMD)) != -1) {
             if (match(line, "^RRA:AVERAGE:.*:([0-9]+):([0-9]+)$", a)) {
@@ -190,7 +196,7 @@ func assemble_rrdgraph_cmd(end, size, \
 
     CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT * FREQ_FACTOR        " \\\\\n" \
           "--title=\"Graph generated at \`date\`\""                                                    " \\\\\n" \
-          "-w " RRDGRAPH_WIDTH " -h " RRDGRAPH_HEIGHT                                                  " \\\\\n" \
+          "-w " rrdgraph_width " -h " rrdgraph_height                                                  " \\\\\n" \
           "--end " end " --start end-" size "s"                                                        " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
     CMD = CMD IF_BLACK_THEME                                                                           " \\\\\n"
@@ -293,23 +299,23 @@ func watch_the_scenery( \
     # some inital setup specific to certain devices. this may fail 
     # on one or another device. don't care.
     #
-    if (!graph_only) {
 
-        #
-        # * Silicon Labs Si2168 card not compatible? · Issue #1 · sp4rkie/docsis-cable-load-monitor
-        # https://github.com/sp4rkie/docsis-cable-load-monitor/issues/1
-        #
-        ex("echo 0 | sudo tee -a /sys/module/dvb_core/parameters/dvb_powerdown_on_sleep")
+    #
+    # fix for:
+    # * Silicon Labs Si2168 card not compatible? · Issue #1 · sp4rkie/docsis-cable-load-monitor
+    # https://github.com/sp4rkie/docsis-cable-load-monitor/issues/1
+    #
+    ex("echo 0 | sudo tee -a /sys/module/dvb_core/parameters/dvb_powerdown_on_sleep")
 
-        #
-        # * set dtvmode
-        # https://www.unitymediaforum.de/viewtopic.php?p=428995#p428995
-        #
-        ex("/opt/bin/mediaclient -d /dev/dvb/adapter0/frontend0 --setdtvmode=DVBC")
-    }
+    #
+    # fix for:
+    # * set dtvmode
+    # https://www.unitymediaforum.de/viewtopic.php?p=428995#p428995
+    #
+    ex("/opt/bin/mediaclient -d /dev/dvb/adapter0/frontend0 --setdtvmode=DVBC")
+    
     while (1) {
         generate_rrdgraphs()
-        if (graph_only) exit
         scan_down_channels()
     }
 }
@@ -329,10 +335,9 @@ func usage( \
     }
     PR("\ndefaults:")
     PR("  -c " sprintf("%-10d", RRDBASE_RRASTEPS) "   # 10 secs")
-    PR("  -r " sprintf("%-10d", RRDBASE_HISTSIZE) "   # 1 week")
-# if cfg manually:
-#    PR("  -e " sprintf("%-10d", strftime("%s")) "     # now")
-#    PR("  -w " sprintf("%-10d", RRDGRAPH_HISTSIZE) "  # 1 hour")
+    PR("  -r " sprintf("%-10d", RRDBASE_HISTSIZE) "   # 1 week" )
+    PR("  -w " sprintf("%-10d", RRDGRAPH_WIDTH)                 )
+    PR("  -h " sprintf("%-10d", RRDGRAPH_HEIGHT)                )
 }
 
 func process_cmdline( \
@@ -347,13 +352,13 @@ func process_cmdline( \
     # regexps for arg matching are kept somewhat sloppy to avoid clutter in usage() text output
     #
     for (i = 2; i < _ARGC; ++i) {
-        if (match(_ARGV[i], "-h")) { # print this help and exit
+        if (match(_ARGV[i] _ARGV[i + 1], "-h$")) { # print this help and exit
             usage()
             exit
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f [0-9]+(:[0-9]+)*$")) { # manually specify downstream channel frequencies
             freq_list = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i], "-f$")) { # force retrieval of current downstream channel freqs
+        } else if (match(_ARGV[i], "-f$")) { # scan a TC4400 for current downstream channel freqs
             freq_list = "force_new_scan"
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c [0-9]+$")) { # create a RRD base with given RRA steps (in secs)
             rrdbase_rrasteps = _ARGV[i + 1]
@@ -361,21 +366,30 @@ func process_cmdline( \
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-r [0-9]+$")) { # recording history size (in secs)
             rrdbase_histsize = _ARGV[i + 1]
             ++i
-# if cfg manually:
-#        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-e [0-9]+$")) { #point in time where the displayed graph ends (in secs)
-#            rrdgraph_histend = strftime("%s") - _ARGV[i + 1]
-#            ++i
-#        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w [0-9]+$")) { #time span covered by the displayed graph (in secs)
-#            rrdgraph_histsize = _ARGV[i + 1]
-#            ++i
-#        } else if (match(_ARGV[i], "-g$")) { #generate the graph from RRD base and exit
-#            ++graph_only
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w [0-9]+$")) { # width of generated graph(s)
+            rrdgraph_width = _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-h [0-9]+$")) { # height of generated graph(s)
+            rrdgraph_height = _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1] " " _ARGV[i + 2], "-g [0-9]+ [0-9]+$")) { # generate a graph with given end and length (in secs)
+            rrdgraph_histend = strftime("%s") - _ARGV[i + 1]
+            rrdgraph_length = _ARGV[i + 2]
+            i += 2
         } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
             ++dvbtune_ignerrs
         } else {
             usage()
             ++ERR; exit
         }
+    }
+    if (rrdgraph_histend) {
+        PR("point in time where the generated graph ends: " strftime("%T", rrdgraph_histend))
+        PR("time span covered by the generated graph: " rrdgraph_length "s")
+        PR("graph is written to: " RRDGRAPH_NAME RRDGRAPH_EXT)
+        ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length), 2)
+        ex("mv " RRDGRAPH_TMP " " RRDGRAPH_NAME RRDGRAPH_EXT)
+        exit
     }
     retrieve_down_freqs(freq_list) 
     PR("recording RRA step size: " rrdbase_rrasteps " seconds")
@@ -386,9 +400,6 @@ func process_cmdline( \
         int(rrdbase_histsize % (60          )                 ) " second(s) "   \
     )
     if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
-# if cfg manually:
-#    PR("point in time where the displayed graph ends: " (rrdgraph_histend == "now" ? "now" : strftime("%T", rrdgraph_histend)))
-#    PR("time span covered by the displayed graph: " rrdgraph_histsize "s")
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()
     if (split(FREQ_SPEC_CFG, a, ":") != split(FREQ_SPEC_NEW, a, ":")) {
