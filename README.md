@@ -129,19 +129,19 @@ Sample graph with a newer theme showing a 7d recording:
         Usage: CableLoadMonitor
           -h                    - print this help and exit
           -f [0-9]+(:[0-9]+)*   - manually specify downstream channel frequencies
-          -f                    - force retrieval of current downstream channel freqs
+          -f                    - scan a TC4400 for current downstream channel freqs
           -c [0-9]+             - create a RRD base with given RRA steps (in secs)
-          -r [0-9]+             - recording history size (only with -c, in secs)
-          -e [0-9]+             - point in time where the displayed graph ends (in secs)
-          -w [0-9]+             - time span covered by the displayed graph (in secs)
-          -g                    - generate the graph from RRD base and exit
+          -r [0-9]+             - recording history size (in secs)
+          -w [0-9]+             - width of generated graph(s)
+          -h [0-9]+             - height of generated graph(s)
+          -g [0-9]+ [0-9]+      - generate a graph with given end and length (in secs)
           -i                    - ignore errors reported by dvbtune
 
         defaults:
           -c 10           # 10 secs
           -r 604800       # 1 week
-          -e <epoch>      # now
-          -w 3600         # 1 hour
+          -w 1500      
+          -h 1000      
 
 - diagnosis
 
