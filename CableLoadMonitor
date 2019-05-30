@@ -237,7 +237,7 @@ func assemble_rrdgraphs_cmd( \
         }
         RRDGRAPH_CMD[i] = assemble_rrdgraph_cmd("now", gensub(" +", "", "g", a[1]))
         RRDGRAPH_FILE[i] = RRDGRAPH_NAME "_" a[2] RRDGRAPH_EXT
-        PR("generating graphs for: " a[2])
+        PR("generating graph for: " sprintf("%4s", a[2]) " recording length, size " rrdgraph_width "x" rrdgraph_height " pixels")
     }
 }
 
