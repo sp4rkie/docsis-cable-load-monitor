@@ -262,7 +262,14 @@ func scan_down_channels( \
         # handle high bandwidths with enough accuracy.
         #
         if (!ex(LD_PL "timeout 1 dvbsnoop -s bandwidth 8190 -n 80000", 0, "^## PID:.*Avrg: +([^ ]+) ", a)) {
-            exit_("dvbsnoop fails")
+
+            #
+            # UPDATE as of 2019_08_03:
+            #  - in the event of dvbsnoop failure: no longer exit but retry instead
+            #
+            PR("\ndvbsnoop fails for [ " FREQ[i] " ], retrying...")
+            --i; continue
+#            exit_("dvbsnoop fails")
         }
         BWIDTH_OF[i] = int(a[1] + 0.5)
         PRF(sprintf("%6s", BWIDTH_OF[i]))
