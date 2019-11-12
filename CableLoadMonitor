@@ -44,6 +44,7 @@ func setup( \
     RRDGRAPH_WIDTH = 1500
     RRDGRAPH_HEIGHT = 1000
     RRDGRAPH_Y_UPPER_LIMIT = 200                # scale Y axis to this minimum
+    BWIDTH_SNAPSHOT = RRDGRAPH_NAME "_bwidth.txt"
 
     # feel free to add other history sizes (aka generated graphs) as well
     RRDGRAPHS[RRDGRAPHS_CNT++] = 60 * 60            " |1h"
@@ -266,8 +267,14 @@ func scan_down_channels( \
             #
             # UPDATE as of 2019_08_03:
             #  - in the event of dvbsnoop failure: no longer exit but retry instead
+            #  - you may want to reload your DVB drivers if these crashed
             #
             PR("\ndvbsnoop fails for [ " FREQ[i] " ], retrying...")
+
+            #
+            # place your specific driver reload code here
+            #
+            ex("systemctl stop sundtek; sleep 5; systemctl start sundtek; sleep 20", 1)
             --i; continue
 #            exit_("dvbsnoop fails")
         }
@@ -288,6 +295,7 @@ func scan_down_channels( \
         } 
     }
     PR(sprintf("%7s", BWIDTH_SUM))
+    print BWIDTH_SUM > BWIDTH_SNAPSHOT; close(BWIDTH_SNAPSHOT)
 }
 
 func generate_rrdgraphs( \
