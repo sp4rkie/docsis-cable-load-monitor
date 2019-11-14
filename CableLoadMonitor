@@ -29,7 +29,6 @@ func setup( \
     CABLE_MODEM_IP = "192.168.100.1"
     CABLE_MODEM_USER = "admin"
     CABLE_MODEM_PASS = "'bEn2o#US9s'"
-CABLE_MODEM_PASS = "'kW\$m(J!58%V]@iC&'"
 
     # file current recording parameters as incompatible changes must trigger a new RRD generation
     CONF_FILE = INSTPATH "CableLoadMonitor.cfg"
