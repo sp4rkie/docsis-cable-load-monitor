@@ -27,6 +27,9 @@ func setup( \
 
     # where to find your TC4400 cable modem (if any)
     CABLE_MODEM_IP = "192.168.100.1"
+    CABLE_MODEM_USER = "admin"
+    CABLE_MODEM_PASS = "'bEn2o#US9s'"
+CABLE_MODEM_PASS = "'kW\$m(J!58%V]@iC&'"
 
     # file current recording parameters as incompatible changes must trigger a new RRD generation
     CONF_FILE = INSTPATH "CableLoadMonitor.cfg"
@@ -41,9 +44,9 @@ func setup( \
     RRDGRAPH_NAME = INSTPATH "CableLoadMonitor"
     RRDGRAPH_EXT = ".png"
     RRDGRAPH_TMP = RRDGRAPH_NAME RRDGRAPH_EXT "_"
-    RRDGRAPH_WIDTH = 1500
+    RRDGRAPH_WIDTH = 1400
     RRDGRAPH_HEIGHT = 1000
-    RRDGRAPH_Y_UPPER_LIMIT = 200                # scale Y axis to this minimum
+    RRDGRAPH_Y_UPPER_LIMIT = 100                # scale Y axis to this minimum
     BWIDTH_SNAPSHOT = RRDGRAPH_NAME "_bwidth.txt"
 
     # feel free to add other history sizes (aka generated graphs) as well
@@ -73,16 +76,17 @@ func setup( \
         IF_BLACK_THEME = IF_BLACK_THEME "--border 1"                 " \\\\\n"
     }
     # --- define this to rescale the sum graph
-    if (use_2nd_yaxis) {
+    if (++use_2nd_yaxis) {
         IF_2ND_YAXIS_SCALE = 10
 
-        IF_2ND_YAXIS = IF_2ND_YAXIS "--right-axis " 1 / IF_2ND_YAXIS_SCALE ":1"    " \\\\\n"
+        IF_2ND_YAXIS = IF_2ND_YAXIS "--right-axis " IF_2ND_YAXIS_SCALE ":0"        " \\\\\n"
         IF_2ND_YAXIS = IF_2ND_YAXIS "--right-axis-label sum"                       " \\\\\n"
 
         SUM_DEF = SUM_DEF sprintf("DEF:sum_=" RRDBASE_FILE ":sum:AVERAGE", i, i)   " \\\\\n"
         SUM_DEF = SUM_DEF "CDEF:sum=sum_," IF_2ND_YAXIS_SCALE ",/"                 " \\\\\n"
     } else {
-        SUM_DEF = SUM_DEF sprintf("DEF:sum=" RRDBASE_FILE ":sum:AVERAGE", i, i)    " \\\\\n"
+        SUM_DEF = SUM_DEF sprintf("DEF:sum_=" RRDBASE_FILE ":sum:AVERAGE", i, i)   " \\\\\n"
+        SUM_DEF = SUM_DEF "CDEF:sum=sum_"                                          " \\\\\n"
     }
 }
 
@@ -134,7 +138,9 @@ func retrieve_down_freqs(freqs, \
         # specific to TC4400 yet
         #
         PR("trying to retrieve downstream channel frequencies from TC4400 modem")
-        WGET = "echo; wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password=\"bEn2o#US9s\" " URL " -O -"
+        WGET = "echo; wget --connect-timeout=1 -t 1 -q " \
+                          "--http-user=" CABLE_MODEM_USER " " \
+                          "--http-password=" CABLE_MODEM_PASS " " URL " -O -"
         LYNX = "lynx -nolist -width 300 -dump -stdin"
         while ((line = ex_line(WGET)) != -1) {
             if (match(line, "<script")) {
@@ -222,7 +228,7 @@ func assemble_rrdgraph_cmd(end, size, \
         for (i = 0; i < FREQ_CNT; ++i) {
             CMD = CMD sprintf("\"GPRINT:f%02d:%s:%%3.0lf %%s\"", i, group[k])                          " \\\\\n"
         }
-        CMD = CMD sprintf("\"GPRINT:%s:%s:%%3.0lf %%s\"", "sum", group[k])
+        CMD = CMD sprintf("\"GPRINT:%s:%s:%%3.0lf %%s\"", "sum_", group[k])
         CMD = CMD "\"    " group[k + 1] "\\\l\""                                                       " \\\\\n"
     }
     return CMD
@@ -299,10 +305,13 @@ func scan_down_channels( \
 }
 
 func generate_rrdgraphs( \
-    i)
+    i, a)
 {
     for (i = 0; RRDGRAPH_CMD[i]; ++i) {
-        ex(RRDGRAPH_CMD[i])
+        if (ex(RRDGRAPH_CMD[i], 0, "^(.*ERROR.*)$", a)) {
+            PR(a[1])
+            exit_("rrdtool graph fails")
+        }
         ex("mv " RRDGRAPH_TMP " " RRDGRAPH_FILE[i], 2)
     }
 }
@@ -356,7 +365,7 @@ func usage( \
 }
 
 func process_cmdline( \
-    renew_rrd_base, backup_time, freq_list, i, a)
+    rrd_exists, renew_rrd_base, backup_time, freq_list, i, a)
 {
     read_cfg()
     if (FREQ_SPEC_CFG) freq_list = FREQ_SPEC_CFG
@@ -417,6 +426,11 @@ func process_cmdline( \
     if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()
+    rrd_exists = ex("ls " RRDBASE_FILE, 0 ,"^(" RRDBASE_FILE ")$")
+    if (!rrd_exists) {
+        PR("the RRD does not exist")
+        renew_rrd_base += 2
+    }
     if (split(FREQ_SPEC_CFG, a, ":") != split(FREQ_SPEC_NEW, a, ":")) {
         if (FREQ_SPEC_CFG) PR("count of monitored channel frequencies did change")
         renew_rrd_base += 2
@@ -430,7 +444,7 @@ func process_cmdline( \
         renew_rrd_base += 2
     }
     if (renew_rrd_base) {
-        if (ex("ls " RRDBASE_FILE, 0 ,"^(" RRDBASE_FILE ")$")) {
+        if (rrd_exists) {
             backup_time = strftime(".%Y-%m-%d_%T")
             PR("backing up old RRD data")
             ex("cp -va " RRDBASE_FILE " " RRDBASE_FILE backup_time)
@@ -441,7 +455,9 @@ func process_cmdline( \
         close(CONF_FILE)
         if (renew_rrd_base > 1) {
             PR("(re)creating the RRD base")
-            ex(RRDB_CCMD_NEW, 2)
+            if (ex(RRDB_CCMD_NEW, 2, "(.)")) {
+                exit_("rrdtool create fails")
+            }
         }
     }
     watch_the_scenery()
