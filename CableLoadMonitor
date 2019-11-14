@@ -45,7 +45,7 @@ func setup( \
     RRDGRAPH_TMP = RRDGRAPH_NAME RRDGRAPH_EXT "_"
     RRDGRAPH_WIDTH = 1400
     RRDGRAPH_HEIGHT = 1000
-    RRDGRAPH_Y_UPPER_LIMIT = 100                # scale Y axis to this minimum
+    RRDGRAPH_Y_UPPER_LIMIT = 40                 # scale Y axis to this minimum
     BWIDTH_SNAPSHOT = RRDGRAPH_NAME "_bwidth.txt"
 
     # feel free to add other history sizes (aka generated graphs) as well
