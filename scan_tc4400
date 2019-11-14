@@ -8,8 +8,11 @@
 # https://github.com/sp4rkie/docsis-cable-load-monitor
 #
 
-CABLE_MODEM_IP=192.168.100.1
-TMPFILE=/tmp/scan_tc4400
+CABLE_MODEM_IP=$1
+[ $CABLE_MODEM_IP ] || CABLE_MODEM_IP=192.168.100.1
+TMPFILE=/tmp/scan_tc4400.$CABLE_MODEM_IP
+USER=admin
+PASS='bEn2o#US9s'
 
 for i in \
 http://$CABLE_MODEM_IP/info.html \
@@ -18,7 +21,7 @@ http://$CABLE_MODEM_IP/cmswinfo.html \
 http://$CABLE_MODEM_IP/cmconnectionstatus.html \
 http://$CABLE_MODEM_IP/cmeventlog.html
 do
-wget --connect-timeout=1 -t 1 -q --http-user=admin --http-password='bEn2o#US9s' $i -O - |
+wget --connect-timeout=1 -t 1 -q --http-user=$USER --http-password=$PASS $i -O - |
 awk '{
     if (!HEAD++) {
         print "------------------ [ '$i' ] ------------------"
@@ -45,7 +48,7 @@ awk '{
     if ($6 == "Locked" && match($19, "^[0-9.]+$")) $19 = "c_1"  # thresh/ TX lev
     if ($6 == "Locked" && match($22, "^[0-9.-]+$")) $22 = "c_2"  # RX lev     
     if ($6 == "Locked" && match($27, "^[0-9]+$")) $27 = "c_3"  # unerrored 
-    if ($6 == "Locked" && match($29, "^[0-9]+$")) $29 = "c_4"  # corrected
+    if ($6 == "Locked" && match($29, "^[0-9]+$")) $29 = "c_4"  # corrected (do not consider these)
     if (match($0, "Current System Time:")) $0 = "c_5"
     if (match($0, "IPv4=.*D:.*H:.*M:.*S:")) $0 = "c_6"
     if (match($0, "Uptime:   ")) $0 = "c_8"
