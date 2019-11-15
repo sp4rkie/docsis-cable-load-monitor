@@ -13,7 +13,6 @@ CABLE_MODEM_IP=$1
 TMPFILE=/tmp/scan_tc4400.$CABLE_MODEM_IP
 USER=admin
 PASS='bEn2o#US9s'
-PASS='kW@*(J!58%V]@iC&'
 
 for i in \
 http://$CABLE_MODEM_IP/info.html \
