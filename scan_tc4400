@@ -13,6 +13,7 @@ CABLE_MODEM_IP=$1
 TMPFILE=/tmp/scan_tc4400.$CABLE_MODEM_IP
 USER=admin
 PASS='bEn2o#US9s'
+PASS='kW@*(J!58%V]@iC&'
 
 for i in \
 http://$CABLE_MODEM_IP/info.html \
@@ -42,13 +43,14 @@ w3m -r -T text/html -cols 1000 -no-graph -dump > ${TMPFILE}_raw
 #lynx -nolist -width 300 -dump -stdin > ${TMPFILE}_raw
 
 awk '{
-    # patch fields to ignore
+    # patch some minor fields to exclude from monitoring.
+    # feel free to encomment lines with items you still want to be monitored.
     if (match($0, " (Critical|Error|Warning|Notice) \\([3456]\\) ") \
-     && match($2, "^[0-9]+$")) $2 = "c_a"  # line number
+     && match($2, "^[0-9]+$")) $2 = "c_a"                       # line number
     if ($6 == "Locked" && match($19, "^[0-9.]+$")) $19 = "c_1"  # thresh/ TX lev
-    if ($6 == "Locked" && match($22, "^[0-9.-]+$")) $22 = "c_2"  # RX lev     
-    if ($6 == "Locked" && match($27, "^[0-9]+$")) $27 = "c_3"  # unerrored 
-    if ($6 == "Locked" && match($29, "^[0-9]+$")) $29 = "c_4"  # corrected (do not consider these)
+    if ($6 == "Locked" && match($22, "^[0-9.-]+$")) $22 = "c_2" # RX lev     
+    if ($6 == "Locked" && match($27, "^[0-9]+$")) $27 = "c_3"   # unerrored code words
+    if ($6 == "Locked" && match($29, "^[0-9]+$")) $29 = "c_4"   # corrected code words
     if (match($0, "Current System Time:")) $0 = "c_5"
     if (match($0, "IPv4=.*D:.*H:.*M:.*S:")) $0 = "c_6"
     if (match($0, "Uptime:   ")) $0 = "c_8"
