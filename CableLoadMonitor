@@ -74,8 +74,8 @@ func setup( \
         IF_BLACK_THEME = IF_BLACK_THEME "--color \"FRAME#ffffff\""   " \\\\\n"
         IF_BLACK_THEME = IF_BLACK_THEME "--border 1"                 " \\\\\n"
     }
-    # --- define this to rescale the sum graph
-    if (++use_2nd_yaxis) {
+    # --- define this to rescale the sum graph (experimental)
+    if (use_2nd_yaxis) {
         IF_2ND_YAXIS_SCALE = 10
 
         IF_2ND_YAXIS = IF_2ND_YAXIS "--right-axis " IF_2ND_YAXIS_SCALE ":0"        " \\\\\n"
@@ -210,14 +210,25 @@ func assemble_rrdgraph_cmd(end, size, \
     CMD = CMD                                                                                          " \\\\\n"
     for (i = 0; i < FREQ_CNT; ++i) {
         CMD = CMD sprintf("DEF:f%02d=" RRDBASE_FILE ":f%02d:AVERAGE", i, i)                            " \\\\\n" 
+        if (i) {
+            CMD = CMD sprintf("CDEF:f%02d_=f%02d_,f%02d,+", i, i - 1, i)                               " \\\\\n" 
+        } else {
+            CMD = CMD sprintf("CDEF:f%02d_=0,f%02d,+", i, i)                                           " \\\\\n" 
+        }
     }
     CMD = CMD SUM_DEF                                                                                  " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
-    for (i = 0; i < FREQ_CNT; ++i) {
-        if (i < FREQ_CNT / 2) {
-            CMD = CMD sprintf("\"LINE:f%02d#ff0000:%d\"", i, FREQ[i])                                  " \\\\\n" 
-        } else {
-            CMD = CMD sprintf("\"LINE:f%02d#0000ff:%d\"", i, FREQ[i])                                  " \\\\\n" 
+    if (display_mode == 1) {
+        for (i = 0; i < FREQ_CNT; ++i) {
+            CMD = CMD sprintf("\"LINE:f%02d_#ff0000:%d\"", i, FREQ[i])                                 " \\\\\n" 
+        }
+    } else {
+        for (i = 0; i < FREQ_CNT; ++i) {
+            if (i < FREQ_CNT / 2) {
+                CMD = CMD sprintf("\"LINE:f%02d#ff0000:%d\"", i, FREQ[i])                              " \\\\\n" 
+            } else {
+                CMD = CMD sprintf("\"LINE:f%02d#0000ff:%d\"", i, FREQ[i])                              " \\\\\n" 
+            }
         }
     }
     CMD = CMD                                                                                          " \\\\\n"
@@ -300,7 +311,7 @@ func scan_down_channels( \
         } 
     }
     PR(sprintf("%7s", BWIDTH_SUM))
-    print BWIDTH_SUM > BWIDTH_SNAPSHOT; close(BWIDTH_SNAPSHOT)
+    print BWIDTH_SUM " kbit/s" > BWIDTH_SNAPSHOT; close(BWIDTH_SNAPSHOT)
 }
 
 func generate_rrdgraphs( \
@@ -356,11 +367,18 @@ func usage( \
             if (match(line, "^func process_cmdline")) ++locked
         }
     }
-    PR("\ndefaults:")
+    PR("\nDefaults:")
     PR("  -c " sprintf("%-10d", RRDBASE_RRASTEPS) "   # 10 secs")
     PR("  -r " sprintf("%-10d", RRDBASE_HISTSIZE) "   # 1 week" )
     PR("  -w " sprintf("%-10d", RRDGRAPH_WIDTH)                 )
     PR("  -h " sprintf("%-10d", RRDGRAPH_HEIGHT)                )
+    PR("\nExample:")
+    PR(PRGBNAME " -d 1 -r 3600 -f 626:634 -i")
+    PR(" - use display mode 1 (accumulated)")
+    PR(" - record 1 hour of data")
+    PR(" - scan 626 MHz and 634 MHz DS channel frequencies")
+    PR(" - ignore bit errors reported by DVB driver")
+    PR(" - generate graphs of size " RRDGRAPH_WIDTH "x" RRDGRAPH_HEIGHT " (default)")
 }
 
 func process_cmdline( \
@@ -378,10 +396,10 @@ func process_cmdline( \
         if (match(_ARGV[i] _ARGV[i + 1], "-h$")) { # print this help and exit
             usage()
             exit
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f [0-9]+(:[0-9]+)*$")) { # manually specify downstream channel frequencies
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f [0-9]+(:[0-9]+)*$")) { # specify downstream (DS) channel frequencies (in MHz)
             freq_list = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i], "-f$")) { # scan a TC4400 for current downstream channel freqs
+        } else if (match(_ARGV[i], "-f$")) { # force scan of TC4400 for DS channel frequencies
             freq_list = "force_new_scan"
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-c [0-9]+$")) { # create a RRD base with given RRA steps (in secs)
             rrdbase_rrasteps = _ARGV[i + 1]
@@ -399,6 +417,9 @@ func process_cmdline( \
             rrdgraph_histend = strftime("%s") - _ARGV[i + 1]
             rrdgraph_length = _ARGV[i + 2]
             i += 2
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-d [01]$")) { # display mode (0 == standard, 1 == accumulated)
+            display_mode = _ARGV[i + 1]
+            ++i
         } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
             ++dvbtune_ignerrs
         } else {
@@ -423,6 +444,7 @@ func process_cmdline( \
         int(rrdbase_histsize % (60          )                 ) " second(s) "   \
     )
     if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
+    PR("display mode: " (display_mode ? "accumulated" : "standard"))
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()
     rrd_exists = ex("ls " RRDBASE_FILE, 0 ,"^(" RRDBASE_FILE ")$")
@@ -480,5 +502,5 @@ END {
 !
 
 [ -t 0 ] && STDIN="< /dev/null"
-eval exec awk -f /usr/local/lib/l5.awklib -f $0_$$.awk $STDIN 2>&1
+eval exec awk -f $0.awklib -f $0_$$.awk $STDIN 2>&1
 

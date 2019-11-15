@@ -30,7 +30,7 @@ software installation
 
 - finally install the load monitoring tool:
 
-        sudo wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/l5.awklib -O /usr/local/lib/l5.awklib
+        wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/l5.awklib -O CableLoadMonitor.awklib
         wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/CableLoadMonitor
 
 how to use it
@@ -128,20 +128,29 @@ Sample graph with a newer theme showing a 7d recording:
 
         Usage: CableLoadMonitor
           -h                    - print this help and exit
-          -f [0-9]+(:[0-9]+)*   - manually specify downstream channel frequencies
-          -f                    - scan a TC4400 for current downstream channel freqs
+          -f [0-9]+(:[0-9]+)*   - specify downstream (DS) channel frequencies (in MHz)
+          -f                    - force scan of TC4400 for DS channel frequencies
           -c [0-9]+             - create a RRD base with given RRA steps (in secs)
           -r [0-9]+             - recording history size (in secs)
           -w [0-9]+             - width of generated graph(s)
           -h [0-9]+             - height of generated graph(s)
           -g [0-9]+ [0-9]+      - generate a graph with given end and length (in secs)
+          -d [01]               - display mode (0 == standard, 1 == accumulated)
           -i                    - ignore errors reported by dvbtune
 
-        defaults:
+        Defaults:
           -c 10           # 10 secs
           -r 604800       # 1 week
-          -w 1500      
+          -w 1400      
           -h 1000      
+
+        Example:
+        CableLoadMonitor -d 1 -r 3600 -f 626:634 -i
+         - use display mode 1 (accumulated)
+         - record 1 hour of data
+         - scan 626 MHz and 634 MHz DS channel frequencies
+         - ignore bit errors reported by DVB driver
+         - generate graphs of size 1400x1000 (default)
 
 - diagnosis
 
