@@ -99,7 +99,7 @@ func read_cfg( \
         while ((line = ex_line(CMD)) != -1) {
             if (match(line, "^RRA:AVERAGE:.*:([0-9]+):([0-9]+)$", a)) {
                 RRA_STEPS_CFG = a[1]
-                HIST_SIZE_CFG = a[2]
+                HIST_SIZE_CFG = a[2] * RRA_STEPS_CFG
             }
         }
     }
@@ -188,7 +188,7 @@ func assemble_rrdcreate_cmd( \
         CMD = CMD sprintf("DS:f%02d:GAUGE:120:U:U", i)     " \\\\\n"
     }
     CMD = CMD sprintf("DS:sum:GAUGE:120:U:U")              " \\\\\n"
-    CMD = CMD sprintf("RRA:AVERAGE:0.1:" rrdbase_rrasteps ":" rrdbase_histsize)
+    CMD = CMD sprintf("RRA:AVERAGE:0.1:" rrdbase_rrasteps ":" rrdbase_histsize / rrdbase_rrasteps)
     RRDB_CCMD_NEW = CMD
 }
 
@@ -413,7 +413,7 @@ func process_cmdline( \
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-h [0-9]+$")) { # height of generated graph(s)
             rrdgraph_height = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1] " " _ARGV[i + 2], "-g [0-9]+ [0-9]+$")) { # generate a graph with given end and length (in secs)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1] " " _ARGV[i + 2], "-g [0-9]+ [0-9]+$")) { # generate a snapshot with stop at and length (in secs)
             rrdgraph_histend = strftime("%s") - _ARGV[i + 1]
             rrdgraph_length = _ARGV[i + 2]
             i += 2
@@ -429,10 +429,13 @@ func process_cmdline( \
     }
     retrieve_down_freqs(freq_list) 
     if (rrdgraph_histend) {
-        PR("point in time where the generated graph ends: " strftime("%T", rrdgraph_histend))
+        PR("point in time where the generated graph ends: " strftime("%y-%m-%d %T", rrdgraph_histend))
         PR("time span covered by the generated graph: " rrdgraph_length "s")
         PR("graph is written to: " RRDGRAPH_NAME RRDGRAPH_EXT)
-        ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length), 2)
+        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length), 0, "^(.*ERROR.*)$", a)) {
+            PR(a[1])
+            exit_("rrdtool graph fails")
+        }
         ex("mv " RRDGRAPH_TMP " " RRDGRAPH_NAME RRDGRAPH_EXT)
         exit
     }
