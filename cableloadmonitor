@@ -1,0 +1,26 @@
+#!/bin/sh
+
+[ -t 0 ] || exec >> $0.log 2>&1
+
+cat > $0_$$.awk << !
+BEGIN {
+    system("rm $0_$$.awk")
+    CMD = "/proc/$$/stat"; getline < CMD; close(CMD)
+    match("$0", "/([^/]+)$", a)
+    CMD = "/run/" a[1] "d.pid"; print "-" \$5 > CMD; close(CMD)
+    HOSTNAME = "`cat /etc/hostname`"
+
+    while (1) {
+        CMD = "/root/bin/CableLoadMonitor -d 1 -i -w 1500 -h 200 2>&1"
+        print "CMD: <" CMD ">"
+        while (CMD | getline line > 0) {
+            print line 
+            fflush("")
+        }
+        close(CMD)
+        CMD = "sleep 5"; CMD | getline line; close(CMD)
+    }
+}
+!
+exec awk -f $0_$$.awk
+

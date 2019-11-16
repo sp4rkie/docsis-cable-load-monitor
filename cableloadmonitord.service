@@ -1,0 +1,13 @@
+[Unit]
+Description=docsis cable load monitor daemon
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+PIDFile=/run/cableloadmonitord.pid
+ExecStart=/root/bin/cableloadmonitor
+
+[Install]
+WantedBy=multi-user.target
+
