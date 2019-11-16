@@ -116,13 +116,17 @@ The alphanumeric example from above looks like this:
 
 The metered values start moderately at about 20Mbit/s. At 14:50 a download with 120Mbit/s initiates spanning a period of about 2 minutes. The values peak in 140Mbit/s reflecting the sum of 20Mbit/s + 120Mbit/s.
 
-Sample graph with a newer theme showing a 24h recording:
+Sample graph showing a newer theme (24h recording):
 
 ![alt text](CableLoadMonitor_new.png "Title")
 
-Sample graph with a newer theme showing a 7d recording:
+Sample graph showing a newer theme (7d recording):
 
 ![alt text](CableLoadMonitor_7d.png "Title")
+
+Sample graph showing display mode 1 (30min recording):
+
+![alt text](CableLoadMonitor_dm1.png "Title")
 
 - command line options
 
@@ -144,13 +148,18 @@ Sample graph with a newer theme showing a 7d recording:
           -w 1400      
           -h 1000      
 
-        Example:
+        Example (continuously record new data):
         CableLoadMonitor -d 1 -r 3600 -f 626:634 -i
          - use display mode 1 (accumulated)
-         - record 1 hour of data
-         - scan 626 MHz and 634 MHz DS channel frequencies
+         - record 3600 secs of data
+         - scan 626 MHz and 634 MHz downstream channel frequencies
          - ignore bit errors reported by DVB driver
          - generate graphs of size 1400x1000 (default)
+
+        Example (take a single snapshot of existing data):
+        CableLoadMonitor -g 27500 1800 -w 1500 -h 800
+         - extract a snapshot of 1800 secs length ending 27500 secs in the past
+         - generate graph of size 1500x800
 
 - diagnosis
 
