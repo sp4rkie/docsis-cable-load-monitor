@@ -138,7 +138,7 @@ Sample graph showing display mode 1 (30min recording):
           -r [0-9]+             - recording history size (in secs)
           -w [0-9]+             - width of generated graph(s)
           -h [0-9]+             - height of generated graph(s)
-          -g [0-9]+ [0-9]+      - generate a graph with given end and length (in secs)
+          -g [0-9]+ [0-9]+      - generate a snapshot with stop at and length (in secs)
           -d [01]               - display mode (0 == standard, 1 == accumulated)
           -i                    - ignore errors reported by dvbtune
 
