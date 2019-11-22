@@ -1,6 +1,6 @@
 - protect against multiple calls
-- protect against  -g 
-- pass remover
+- protect against -g DB clash
+- auto pass remover
 - hint echo 0 | sudo dvb-fe-tool -d DVBC/ANNEX_A
     - #49
     https://www.unitymediaforum.de/threads/37095/post-428133
@@ -11,3 +11,6 @@
 - header to grph 1d 7d 7d 
 - cond sundtek specific stuff LD_PL and such
 - parallelized multi tuner support
+- systemd integration
+- logging configurable
+- graph generation as needed (not after each cycle)
