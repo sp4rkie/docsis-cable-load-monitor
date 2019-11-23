@@ -14,3 +14,6 @@
 - systemd integration
 - logging configurable
 - graph generation as needed (not after each cycle)
+- always record 31 channels to avoid DB rebuild in most cases
+- HW autodetect
+- supervise dispatch loop with watchdog
