@@ -21,7 +21,7 @@ software installation
 - first install Raspbian on your RPi: [Download Raspbian for Raspberry Pi](https://www.raspberrypi.org/downloads/raspbian/)
 - after this the following additional packages are required:
         
-        sudo apt install wget gawk lynx dvbsnoop dvbtune rrdtool feh
+        sudo apt install wget gawk lynx dvbsnoop dvbtune dvb-tools rrdtool feh
 
 - Sundtek MediaTV Pro driver installation:
 
@@ -151,7 +151,7 @@ Sample graph showing display mode 1 (30min recording):
         Example (continuously record new data):
         CableLoadMonitor -d 1 -r 3600 -f 626:634 -i
          - use display mode 1 (accumulated)
-         - record 3600 secs of data
+         - keep 3600 secs of data
          - scan 626 MHz and 634 MHz downstream channel frequencies
          - ignore bit errors reported by DVB driver
          - generate graphs of size 1400x1000 (default)
