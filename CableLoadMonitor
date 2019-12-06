@@ -259,56 +259,99 @@ func assemble_rrdgraphs_cmd( \
 }
 
 func scan_down_channels( \
-    RRDUPD_STR, BWIDTH_SUM, a, i, k)
+    retry, resume, gbwidth, bwidth, RRDUPD_STR, BWIDTH_SUM, a, i, k, kk, line)
 {
     PRF(strftime("%T: "))
-    for (i = 0; i < FREQ_CNT; ++i) {
-#        tuning via mediaclient not in use ATM
-#        ex("timeout 10 /opt/bin/mediaclient -d /dev/dvb/adapter0/frontend0 -m DVBC -f " FREQ[i] * FREQ_FACTOR " -M Q256 -S 6952000")
-        ex(LD_PL "timeout 10 dvbtune -f " FREQ[i] * FREQ_FACTOR " -s 6952 -qam 256", 0, "Bit error rate: ([0-9]+)$", a)
-        a[1] += 0
-        if (a[1] && !dvbtune_ignerrs) {
-            PR("\n\n" a[0] ", please check your cables\n")
-        }
+    PRP("--------------------------------------------------------------------------------")
 
-        #
-        # in case of very small bandwidth values limit the measurement 
-        # interval to something useful to keep the overall scan time sufficiently low.
-        #
-        # the arbitrarily chosen stop value of 80000 appears to be high enough to even 
-        # handle high bandwidths with enough accuracy.
-        #
-        if (!ex(LD_PL "timeout 1 dvbsnoop -s bandwidth 8190 -n 80000", 0, "^## PID:.*Avrg: +([^ ]+) ", a)) {
+    retry = 0
+    for (i = 0; i < FREQ_CNT; i += CARDS) {
+        if (!retry) {
+            resume = 0
+        }
+        for (k = resume; k < CARDS; ++k) {
+            if (i + k == FREQ_CNT) break
 
             #
-            # UPDATE as of 2019_08_03:
-            #  - in the event of dvbsnoop failure: no longer exit but retry instead
-            #  - you may want to reload your DVB drivers if these crashed
+            # tuning via mediaclient not in use ATM
+            #   ex("timeout 10 /opt/bin/mediaclient -d /dev/dvb/adapter0/frontend0 -m DVBC -f " FREQ[i] * FREQ_FACTOR " -M Q256 -S 6952000")
             #
-            PR("\ndvbsnoop fails for [ " FREQ[i] " ], retrying...")
+            # in case of very small bandwidth values limit the measurement 
+            # interval to something useful to keep the overall scan time sufficiently low.
+            #
+            # the arbitrarily chosen stop value of 80000 appears to be high enough to even 
+            # handle high bandwidths with enough accuracy.
+            #
+            CMD = "{ " LD_PL "timeout 10 dvbtune -c " k " -f " FREQ[i + k] * FREQ_FACTOR " -s 6952 -qam 256; " LD_PL "timeout 1 dvbsnoop -adapter " k " -s bandwidth 8190 -n 80000" "; } 2>&1" 
+            PRP(CMD)
+            print CMD |& SH[k]
+            close(SH[k], "to")
+        }
+        for (k = resume; k < CARDS; ++k) {
+            if (i + k == FREQ_CNT) break
+            gbwidth = 0
+            while (SH[k] |& getline line > 0) {
+                if (match(line, "Bit error rate: ([0-9]+)$", a)) {
+                    a[1] += 0
+                    if (a[1] && !dvbtune_ignerrs) {
+                        PR("\n\n" a[0] ", please check your cables or use '-i' option\n")
+                    }
+                } else if (match(line, "^## PID:.*Avrg: +([^ ]+) ", a)) {
+                    PRFP(line "   ")
+                    bwidth = a[1]
+                    ++gbwidth
+                }
+            }
+            close(SH[k])
+## test DVB failure
+#if (++CNT == 3) {
+#    PR(" <== TRIGGERED FAIL ON [" CNT "]")
+#    gbwidth = 0
+#}
+            if (!gbwidth) {
+                #
+                # UPDATE as of 2019_08_03:
+                #  - in the event of dvbsnoop failure: no longer exit but retry instead
+                #  - you may want to reload your DVB drivers if these crashed
+                #
+                PR("\ndvbsnoop fails for [ " FREQ[i + k] " ], retrying...")
 
+                #
+                # place your specific driver reload code here
+                #
+                ex("systemctl stop sundtek; sleep 5; systemctl start sundtek; sleep " 5 + 10 * CARDS, 1)
+
+                # recover loops
+                for (kk = k + 1; kk < CARDS; ++kk) {
+                    if (i + kk == FREQ_CNT) break
+                    close(SH[kk])
+                }
+                i -= CARDS
+                resume = k
+                ++retry
+                break
+#                exit_("dvbsnoop fails")
+            }
+            BWIDTH_OF[i + k] = int(bwidth + 0.5)
+            PRF(sprintf("%6s", BWIDTH_OF[i + k]))
+            PRP("")
+            BWIDTH_SUM = 0
+            RRDUPD_STR = "rrdtool update " RRDBASE_FILE " N"
+            for (kk = 0; kk < FREQ_CNT; ++kk) {
+                BWIDTH_SUM += BWIDTH_OF[kk]
+                RRDUPD_STR = RRDUPD_STR ":" BWIDTH_OF[kk] * 1000
+            }
             #
-            # place your specific driver reload code here
+            # do not update until the initial scan completes
             #
-            ex("systemctl stop sundtek; sleep 5; systemctl start sundtek; sleep 20", 1)
-            --i; continue
-#            exit_("dvbsnoop fails")
+            if (BWIDTH_OF[FREQ_CNT - 1] != "na") {
+                RRDUPD_STR = RRDUPD_STR ":" BWIDTH_SUM * 1000
+                ex(RRDUPD_STR, 2)
+            } 
         }
-        BWIDTH_OF[i] = int(a[1] + 0.5)
-        PRF(sprintf("%6s", BWIDTH_OF[i]))
-        BWIDTH_SUM = 0
-        RRDUPD_STR = "rrdtool update " RRDBASE_FILE " N"
-        for (k = 0; k < FREQ_CNT; ++k) {
-            BWIDTH_SUM += BWIDTH_OF[k]
-            RRDUPD_STR = RRDUPD_STR ":" BWIDTH_OF[k] * 1000
+        if (k == CARDS) {
+            retry = 0
         }
-        #
-        # do not update until the initial scan completes
-        #
-        if (BWIDTH_OF[FREQ_CNT - 1] != "na") {
-            RRDUPD_STR = RRDUPD_STR ":" BWIDTH_SUM * 1000
-            ex(RRDUPD_STR, 2)
-        } 
     }
     PR(sprintf("%7s", BWIDTH_SUM))
     print BWIDTH_SUM " kbit/s" > BWIDTH_SNAPSHOT; close(BWIDTH_SNAPSHOT)
@@ -318,7 +361,7 @@ func generate_rrdgraphs( \
     i, a)
 {
     for (i = 0; RRDGRAPH_CMD[i]; ++i) {
-        if (ex(RRDGRAPH_CMD[i], 0, "^(.*ERROR.*)$", a)) {
+        if (ex(RRDGRAPH_CMD[i], 256, "^(.*ERROR.*)$", a)) {
             PR(a[1])
             exit_("rrdtool graph fails")
         }
@@ -327,7 +370,7 @@ func generate_rrdgraphs( \
 }
 
 func watch_the_scenery( \
-    )
+    i)
 {
     #
     # some inital setup specific to certain devices. this may fail 
@@ -339,15 +382,36 @@ func watch_the_scenery( \
     # * Silicon Labs Si2168 card not compatible? · Issue #1 · sp4rkie/docsis-cable-load-monitor
     # https://github.com/sp4rkie/docsis-cable-load-monitor/issues/1
     #
-    ex("echo 0 | sudo tee -a /sys/module/dvb_core/parameters/dvb_powerdown_on_sleep")
+    ex("echo 0 | sudo tee -a /sys/module/dvb_core/parameters/dvb_powerdown_on_sleep", 0)
 
     #
     # fix for:
     # * set dtvmode
     # https://www.unitymediaforum.de/viewtopic.php?p=428995#p428995
     #
-    ex("/opt/bin/mediaclient -d /dev/dvb/adapter0/frontend0 --setdtvmode=DVBC")
-    
+    for (i = 0; i < 20; ++i) {
+        if (!ex("/opt/bin/mediaclient -d /dev/dvb/adapter" i "/frontend0 --setdtvmode=DVBC", 0, "^(Done)")) {
+            break
+        }
+    }
+    CARDS = i
+    if (!CARDS) {
+        PR("no Sundtek card(s) found, trying others (untested)")
+        for (i = 0; i < 20; ++i) {
+            if (ex("dvb-fe-tool -a " i " -d DVBC/ANNEX_A", 0, "(not found)")) {
+                break
+            }
+        }
+        CARDS = i
+        if (!CARDS) {
+            exit_("no usable DVBC card(s) found at all")
+        }
+    }
+    PR("found " CARDS " DVBC card(s)")
+    for (i = 0; i < CARDS; ++i) {
+        ex("ln -nfs /bin/sh " INSTPATH "sh" i)
+        SH[i] = INSTPATH "sh" i
+    }
     while (1) {
         generate_rrdgraphs()
         scan_down_channels()
@@ -375,7 +439,7 @@ func usage( \
     PR("\nExample (continuously record new data):")
     PR(PRGBNAME " -d 1 -r 3600 -f 626:634 -i")
     PR(" - use display mode 1 (accumulated)")
-    PR(" - record 3600 secs of data")
+    PR(" - keep 3600 secs of data")
     PR(" - scan 626 MHz and 634 MHz downstream channel frequencies")
     PR(" - ignore bit errors reported by DVB driver")
     PR(" - generate graphs of size " RRDGRAPH_WIDTH "x" RRDGRAPH_HEIGHT " (default)")
