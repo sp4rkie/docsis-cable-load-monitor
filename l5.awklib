@@ -1,5 +1,5 @@
 #
-# --- awk library VERSION 0.0.5 (as of 2017_11_06) ---
+# --- awk library VERSION 0.0.6 (as of 2019_12_06) ---
 #
 # unfortunately some chars must be escaped differently
 # depending on awk or shell use e.g. "'" needs to be escaped
@@ -284,21 +284,25 @@ func ex_line(cmd,
 #   0xxx xxxx  -  read data from pipe (default)
 #   1xxx xxxx  -  read data from file==cmd directly
 #
+# 0 xxxx xxxx  -  cmd logging possible
+# 1 xxxx xxxx  -  suppress cmd logging completely
+#
 func ex(cmd, verb, scantext, a, \
   CMD, line)
 {
   delete a
 
-  EX_V_B0 = int(verb /   1) % 2
-  EX_V_B1 = int(verb /   2) % 2
-  EX_V_B2 = int(verb /   4) % 2
-  EX_V_B3 = int(verb /   8) % 2
-  EX_V_B4 = int(verb /  16) % 2
-  EX_V_B5 = int(verb /  32) % 2
-  EX_V_B7 = int(verb / 128) % 2
+  EX_V_B0 = and(verb,   1)
+  EX_V_B1 = and(verb,   2)
+  EX_V_B2 = and(verb,   4)
+  EX_V_B3 = and(verb,   8)
+  EX_V_B4 = and(verb,  16)
+  EX_V_B5 = and(verb,  32)
+  EX_V_B7 = and(verb, 128)
+  EX_V_B8 = and(verb, 256)
 
   CMD = ROOTPATH "/bin/bash -c '" cmd "' 2>&1"
-  if (EX_V_B0) PR("CMD: " cmd); else PRP("CMD: " CMD)
+  if (!EX_V_B8) if (EX_V_B0) PR("CMD: " cmd); else PRP("CMD: " CMD)
   if (EX_V_B4) {
       PRP("checking for ZERO output")
       scantext = "^(.*)$"
@@ -576,6 +580,18 @@ func cleanup( \
     )
 {
     system("rm -f " TMP_FILE "*")
+}
+
+func ffs(x, \
+    n)
+{
+    n = 0
+    if (!and(x, 0x0000ffff)) { n  = 16; x = rshift(x, 16) }
+    if (!and(x, 0x000000ff)) { n +=  8; x = rshift(x,  8) }
+    if (!and(x, 0x0000000f)) { n +=  4; x = rshift(x,  4) }
+    if (!and(x, 0x00000003)) { n +=  2; x = rshift(x,  2) }
+    if (!and(x, 0x00000001)) { n +=  1 }
+    return n
 }
 
 func setup_lib(argc, argv, procnum, pwd, hostname, is_android, \
