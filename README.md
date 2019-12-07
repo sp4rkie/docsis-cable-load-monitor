@@ -11,7 +11,7 @@ required hardware
 -----------------
 
 - basically any linux machine with Linux DVB API (Version 3, Version 5.x) and DVB-C support is suitable
-- to ease things further following components are recommended:
+- to ease things further following components are recommended
     - Raspberry Pi (e.g. Pi 3 Model B, earlier B models may also work)
     - TV stick: Sundtek MediaTV Pro III (DVB-C/T/T2, FM-Radio, AnalogTV)
 
@@ -19,19 +19,20 @@ software installation
 ---------------------
 
 - first install Raspbian on your RPi: [Download Raspbian for Raspberry Pi](https://www.raspberrypi.org/downloads/raspbian/)
-- after this the following additional packages are required:
+- after this the following additional packages are required
         
         sudo apt install wget gawk lynx dvbsnoop dvbtune dvb-tools rrdtool feh
 
-- Sundtek MediaTV Pro driver installation:
+- Sundtek MediaTV Pro driver installation
 
         wget http://www.sundtek.de/media/sundtek_installer_181220.135032.sh
         sudo sh sundtek_installer_181220.135032.sh -service -nolirc -noautostart
 
-- finally install the load monitoring tool:
+- finally install the load monitoring tool
 
         wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/CableLoadMonitor.awklib
         wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/CableLoadMonitor
+        chmod 755 CableLoadMonitor
 
 how to use it
 -------------
@@ -47,7 +48,7 @@ The program then will start to meter the cable load. The raw results are shown o
 
 - alphanumeric support
 
-An example console output for 16 downstream channel frequencies could look like this:
+An example console output for 16 downstream channel frequencies could look like this
 
         reading downstream channel frequencies from cache
         downstream channel frequencies now in use: [ 16 ] 546 530 538 554 562 570 578 586 594 602 610 618 626 634 642 650
@@ -164,6 +165,22 @@ Sample graph showing display mode 1 (30min recording):
 - diagnosis
 
 The program logs all activity to file `CableLoadMonitor.log`. This will be the first place to look at if something went wrong.
+
+systemd integration
+-------------------
+
+- for the templates provided to work the above installation must go to `/root/bin/` directory
+- install these additional files on your machine
+
+        wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/cableloadmonitor -O /root/bin/cableloadmonitor
+        wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/cableloadmonitord.service -O /etc/systemd/system/cableloadmonitord.service
+        chmod 755 /root/bin/cableloadmonitor
+
+- enable and start service
+
+        systemctl daemon-reload
+        systemctl enable cableloadmonitord
+        systemctl start cableloadmonitord
 
 reference
 ---------
