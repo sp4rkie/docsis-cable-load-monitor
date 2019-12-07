@@ -1,6 +1,6 @@
 #!/bin/sh
 
-[ -t 0 ] || exec >> $0.log 2>&1
+[ -t 0 ] || exec > $0.log 2>&1
 
 cat > $0_$$.awk << !
 BEGIN {
