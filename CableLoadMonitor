@@ -370,8 +370,10 @@ func generate_rrdgraphs( \
 }
 
 func watch_the_scenery( \
-    i)
+    last, retry, RETRIES, i)
 {
+    RETRIES = 30
+
     #
     # some inital setup specific to certain devices. this may fail 
     # on one or another device. don't care.
@@ -384,28 +386,43 @@ func watch_the_scenery( \
     #
     ex("echo 0 | sudo tee -a /sys/module/dvb_core/parameters/dvb_powerdown_on_sleep", 0)
 
-    #
-    # fix for:
-    # * set dtvmode
-    # https://www.unitymediaforum.de/viewtopic.php?p=428995#p428995
-    #
-    for (i = 0; i < 20; ++i) {
-        if (!ex("/opt/bin/mediaclient -d /dev/dvb/adapter" i "/frontend0 --setdtvmode=DVBC", 0, "^(Done)")) {
-            break
-        }
-    }
-    CARDS = i
-    if (!CARDS) {
-        PR("no Sundtek card(s) found, trying others (untested)")
+    if (!CARDS_CFG) ++CARDS_CFG
+    retry = RETRIES
+    while (1) {
+
+        #
+        # fix for:
+        # * set dtvmode
+        # https://www.unitymediaforum.de/viewtopic.php?p=428995#p428995
+        #
         for (i = 0; i < 20; ++i) {
-            if (ex("dvb-fe-tool -a " i " -d DVBC/ANNEX_A", 0, "(not found)")) {
+            if (!ex("/opt/bin/mediaclient -d /dev/dvb/adapter" i "/frontend0 --setdtvmode=DVBC", 0, "^(Done)")) {
                 break
             }
         }
         CARDS = i
         if (!CARDS) {
-            exit_("no usable DVBC card(s) found at all")
+            PR("no Sundtek card(s) found, trying others (untested)")
+            for (i = 0; i < 20; ++i) {
+                if (ex("dvb-fe-tool -a " i " -d DVBC/ANNEX_A", 0, "(not found)")) {
+                    break
+                }
+            }
+            CARDS = i
         }
+        if (CARDS >= CARDS_CFG) {
+            break
+        } else if (!retry--) {
+            exit_("retries exhausted, tuner count configured not satisfiable")
+        } else {
+            if (last != CARDS) {
+                # increment to give the remaining a chance
+                last = CARDS
+                retry = RETRIES
+            }
+            PR("tuner count configured not yet reached [ " CARDS " < " CARDS_CFG " ], retrying [ " retry " ]")
+        }
+        ex("sleep 1")
     }
     PR("found " CARDS " DVBC card(s)")
     for (i = 0; i < CARDS; ++i) {
@@ -487,6 +504,12 @@ func process_cmdline( \
             i += 2
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-d [01]$")) { # display mode (0 == standard, 1 == accumulated)
             display_mode = _ARGV[i + 1]
+            ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-n [0-9]+$")) { # wait for this many tuners minimum to come up
+            CARDS_CFG = _ARGV[i + 1]
+            if (!CARDS_CFG) {
+                exit_("need more tuners")
+            }
             ++i
         } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
             ++dvbtune_ignerrs
