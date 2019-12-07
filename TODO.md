@@ -4,7 +4,7 @@
 - ~~hint echo 0 | sudo dvb-fe-tool -d DVBC/ANNEX_A~~
   ~~  - #49~~
   ~~  https://www.unitymediaforum.de/threads/37095/post-428133~~
-- scan_tc4400 to *md 
+- ~~scan_tc4400 to *md~~
 - mv replaces cp to backup rdd
 - ~~awklib fix and()~~
 - ~~timestamps to *log~~

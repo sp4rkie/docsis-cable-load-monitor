@@ -141,23 +141,25 @@ Sample graph showing display mode 1 (30min recording):
           -h [0-9]+             - height of generated graph(s)
           -g [0-9]+ [0-9]+      - generate a snapshot with stop at and length (in secs)
           -d [01]               - display mode (0 == standard, 1 == accumulated)
+          -n [0-9]+             - wait for this many tuners minimum to come up
           -i                    - ignore errors reported by dvbtune
-
+        
         Defaults:
           -c 10           # 10 secs
           -r 604800       # 1 week
           -w 1400      
           -h 1000      
-
-        Example (continuously record new data):
-        CableLoadMonitor -d 1 -r 3600 -f 626:634 -i
+        
+        Example 1 (continuously record new data):
+        CableLoadMonitor -d 1 -r 3600 -f 626:634 -i -n 3
          - use display mode 1 (accumulated)
          - keep 3600 secs of data
          - scan 626 MHz and 634 MHz downstream channel frequencies
          - ignore bit errors reported by DVB driver
+         - wait for at least 3 tuners to come up after start (useful after reboot)
          - generate graphs of size 1400x1000 (default)
-
-        Example (take a single snapshot of existing data):
+        
+        Example 2 (take a single snapshot of existing data):
         CableLoadMonitor -g 27500 1800 -w 1500 -h 800
          - extract a snapshot of 1800 secs length ending 27500 secs in the past
          - generate graph of size 1500x800
@@ -176,11 +178,24 @@ systemd integration
         wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/cableloadmonitord.service -O /etc/systemd/system/cableloadmonitord.service
         chmod 755 /root/bin/cableloadmonitor
 
+- adapt options used in `cableloadmonitor` to your requirements
 - enable and start service
 
         systemctl daemon-reload
         systemctl enable cableloadmonitord
         systemctl start cableloadmonitord
+
+other tools
+-----------
+
+- a screen scraper tool is provided to allow simple monitoring of your TC4400 DOCSIS Cable Modem per cronjob
+- download 
+
+        wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/scan_tc4400
+        chmod 755 scan_tc4400
+
+- repeated execution of this tool logs modem status changes between the calls on stdout (tailored to be used as cron job)
+- you may wish to edit some defaults to adapt your specific needs (e.g. exclude correctable errors from being logged)
 
 reference
 ---------
