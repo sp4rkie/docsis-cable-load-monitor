@@ -30,7 +30,7 @@ software installation
 
 - finally install the load monitoring tool:
 
-        wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/l5.awklib -O CableLoadMonitor.awklib
+        wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/CableLoadMonitor.awklib
         wget https://raw.githubusercontent.com/sp4rkie/docsis-cable-load-monitor/master/CableLoadMonitor
 
 how to use it
