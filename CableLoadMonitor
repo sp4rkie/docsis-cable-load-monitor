@@ -46,6 +46,7 @@ func setup( \
     RRDGRAPH_WIDTH = 1400
     RRDGRAPH_HEIGHT = 1000
     RRDGRAPH_Y_UPPER_LIMIT = 40                 # scale Y axis to this minimum
+    RRDGRAPH_UPDATE_RATE = 120                  # lower graph update rate to this value for higher hist sizes
     BWIDTH_SNAPSHOT = RRDGRAPH_NAME "_bwidth.txt"
 
     # feel free to add other history sizes (aka generated graphs) as well
@@ -305,7 +306,7 @@ func scan_down_channels( \
             close(SH[k])
 ## simulate DVB failure
 #if (++CNT == 3) {
-#    PR(" <== TRIGGERED FAIL ON [" CNT "]")
+##    PR(" <== TRIGGERED FAIL ON [" CNT "]")
 #    gbwidth = 0
 #}
             if (!gbwidth) {
@@ -318,7 +319,13 @@ func scan_down_channels( \
                 PRF("\ndvbsnoop fails for [ " FREQ[i + k] " ]")
                 if (failreboot) {
                     PR(", rebooting...")
-                    ex("sudo /sbin/init 6")
+                    PRF("waiting for grace period 30s to expire: ")
+                    for (kk = 0; kk < 30; ++kk) {
+                        ex("sleep 1")
+                        PRF(".")
+                    }
+                    PR("")
+                    ex("sudo /sbin/init 6", 1)
                 }
                 PR(", retrying...")
 
@@ -367,11 +374,15 @@ func generate_rrdgraphs( \
     i, a)
 {
     for (i = 0; RRDGRAPH_CMD[i]; ++i) {
+        if (i && RRDGRAPH_LUPD[i - 1] - RRDGRAPH_LUPD[i] < RRDGRAPH_UPDATE_RATE) {
+            break
+        }
         if (ex(RRDGRAPH_CMD[i], 256, "^(.*ERROR.*)$", a)) {
             PR(a[1])
             exit_("rrdtool graph fails")
         }
         ex("mv " RRDGRAPH_TMP " " RRDGRAPH_FILE[i], 2)
+        RRDGRAPH_LUPD[i] = strftime("%s")
     }
 }
 

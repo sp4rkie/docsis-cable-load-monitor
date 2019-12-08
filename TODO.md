@@ -13,7 +13,7 @@
 - ~~parallelized multi tuner support~~
 - ~~systemd integration~~
 - logging configurable
-- graph generation as needed (not after each cycle)
+- ~~graph generation as needed (not after each cycle)~~
 - always record 32 channels to avoid DB rebuild in most cases
 - ~~HW autodetect~~
 - supervise dispatch loop with watchdog
