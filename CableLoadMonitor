@@ -309,12 +309,18 @@ func scan_down_channels( \
 #    gbwidth = 0
 #}
             if (!gbwidth) {
+
                 #
                 # UPDATE as of 2019_08_03:
                 #  - in the event of dvbsnoop failure: no longer exit but retry instead
                 #  - you may want to reload your DVB drivers if these crashed
                 #
-                PR("\ndvbsnoop fails for [ " FREQ[i + k] " ], retrying...")
+                PRF("\ndvbsnoop fails for [ " FREQ[i + k] " ]")
+                if (failreboot) {
+                    PR(", rebooting...")
+                    ex("sudo /sbin/init 6")
+                }
+                PR(", retrying...")
 
                 #
                 # place your specific driver reload code here
@@ -514,6 +520,8 @@ func process_cmdline( \
             ++i
         } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
             ++dvbtune_ignerrs
+        } else if (match(_ARGV[i], "-failreboot$")) { # failing dvbsnoop triggers a reboot
+            ++failreboot
         } else {
             usage()
             ++ERR; exit
@@ -538,7 +546,8 @@ func process_cmdline( \
         int(rrdbase_histsize % (60 * 60     ) / (60          )) " minute(s) "   \
         int(rrdbase_histsize % (60          )                 ) " second(s) "   \
     )
-    if (dvbtune_ignerrs) PR("dvbtune: " "ignore bit errors")
+    if (dvbtune_ignerrs) PR("dvbtune bit errors: " "ignored")
+    PR("dvbsnoop failure: " (failreboot ? "reboots" : "retries"))
     PR("display mode: " (display_mode ? "accumulated" : "standard"))
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()

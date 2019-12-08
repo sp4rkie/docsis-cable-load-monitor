@@ -18,3 +18,4 @@
 - ~~HW autodetect~~
 - supervise dispatch loop with watchdog
 - graph dst dir configurable
+- ~~option to trigger reboot on dvbsnoop failure~~

@@ -143,6 +143,7 @@ Sample graph showing display mode 1 (30min recording):
           -d [01]               - display mode (0 == standard, 1 == accumulated)
           -n [0-9]+             - wait for this many tuners minimum to come up
           -i                    - ignore errors reported by dvbtune
+          -failreboot           - failing dvbsnoop triggers a reboot
         
         Defaults:
           -c 10           # 10 secs
@@ -171,6 +172,7 @@ The program logs all activity to file `CableLoadMonitor.log`. This will be the f
 systemd integration
 -------------------
 
+- execute all the following as user root
 - for the templates provided to work the above installation must go to `/root/bin/` directory
 - install these additional files on your machine
 
