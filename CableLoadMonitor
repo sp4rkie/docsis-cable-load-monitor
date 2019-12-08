@@ -260,7 +260,7 @@ func assemble_rrdgraphs_cmd( \
 }
 
 func scan_down_channels( \
-    retry, resume, gbwidth, bwidth, RRDUPD_STR, BWIDTH_SUM, a, i, k, kk, line)
+    retry, resume, passc, bwidth, RRDUPD_STR, BWIDTH_SUM, a, i, k, kk, line)
 {
     PRF(strftime("%T: "))
     PRP("--------------------------------------------------------------------------------")
@@ -283,40 +283,44 @@ func scan_down_channels( \
             # the arbitrarily chosen stop value of 80000 appears to be high enough to even 
             # handle high bandwidths with enough accuracy.
             #
-            CMD = "{ " LD_PL "timeout 10 dvbtune -c " k " -f " FREQ[i + k] * FREQ_FACTOR " -s 6952 -qam 256; " LD_PL "timeout 1 dvbsnoop -adapter " k " -s bandwidth 8190 -n 80000" "; } 2>&1" 
+            CMD = "{ " LD_PL "timeout 10 dvbtune -c " k " -f " FREQ[i + k] * FREQ_FACTOR " -s 6952 -qam 256; " \
+                       LD_PL "timeout 1 dvbsnoop -adapter " k " -s bandwidth 8190 -n 80000" "; } 2>&1" 
             PRP(CMD)
             print CMD |& SH[k]
             close(SH[k], "to")
         }
         for (k = resume; k < CARDS; ++k) {
             if (i + k == FREQ_CNT) break
-            gbwidth = 0
+            passc = 0
             while (SH[k] |& getline line > 0) {
-                if (match(line, "Bit error rate: ([0-9]+)$", a)) {
-                    a[1] += 0
-                    if (a[1] && !dvbtune_ignerrs) {
-                        PR("\n\n" a[0] ", please check your cables or use '-i' option\n")
-                    }
+                if (match(line, "Bit error rate: ([0-9]+)$", a) \
+                 && (a[1] += 0) \
+                 && !dvbtune_ignerrs) {
+                    PR("\n\n" a[0] ", please check your cables or use '-i' option\n")
+                    break
+                } else if (match(line, "^FE_STATUS: FE_HAS_SIGNAL FE_HAS_LOCK FE_HAS_CARRIER FE_HAS_VITERBI FE_HAS_SYNC")) {
+                    ++passc
                 } else if (match(line, "^## PID:.*Avrg: +([^ ]+) ", a)) {
                     PRFP(line "   ")
                     bwidth = a[1]
-                    ++gbwidth
+                    ++passc
                 }
             }
             close(SH[k])
+
 ## simulate DVB failure
-#if (++CNT == 3) {
+#if (++CNT == 2) {
 ##    PR(" <== TRIGGERED FAIL ON [" CNT "]")
-#    gbwidth = 0
+#    passc = 0
 #}
-            if (!gbwidth) {
+            if (passc != 3) {
 
                 #
                 # UPDATE as of 2019_08_03:
                 #  - in the event of dvbsnoop failure: no longer exit but retry instead
                 #  - you may want to reload your DVB drivers if these crashed
                 #
-                PRF("\ndvbsnoop fails for [ " FREQ[i + k] " ]")
+                PRF("\ndvbtune/dvbsnoop fails for [ " FREQ[i + k] " ] [ passc == " passc " ]")
                 if (failreboot) {
                     PR(", rebooting...")
                     PRF("waiting for grace period 30s to expire: ")
@@ -558,7 +562,7 @@ func process_cmdline( \
         int(rrdbase_histsize % (60          )                 ) " second(s) "   \
     )
     if (dvbtune_ignerrs) PR("dvbtune bit errors: " "ignored")
-    PR("dvbsnoop failure: " (failreboot ? "reboots" : "retries"))
+    PR("dvb failure recovery method: " (failreboot ? "reboot" : "retry"))
     PR("display mode: " (display_mode ? "accumulated" : "standard"))
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()
