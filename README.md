@@ -137,13 +137,16 @@ Sample graph showing display mode 1 (30min recording):
           -f                    - force scan of TC4400 for DS channel frequencies
           -c [0-9]+             - create a RRD base with given RRA steps (in secs)
           -r [0-9]+             - recording history size (in secs)
+          -t /[/a-zA-Z]+        - set destination directory for graph(s)
           -w [0-9]+             - width of generated graph(s)
           -h [0-9]+             - height of generated graph(s)
           -g [0-9]+ [0-9]+      - generate a snapshot with stop at and length (in secs)
           -d [01]               - display mode (0 == standard, 1 == accumulated)
           -n [0-9]+             - wait for this many tuners minimum to come up
           -i                    - ignore errors reported by dvbtune
-          -failreboot           - failing dvbsnoop triggers a reboot
+          -sequential           - force sequential tuning in multi tuner mode
+          -failreboot           - trigger a reboot on dvbsnoop failure
+          -v                    - increase logging verbosity
         
         Defaults:
           -c 10           # 10 secs
@@ -159,11 +162,13 @@ Sample graph showing display mode 1 (30min recording):
          - ignore bit errors reported by DVB driver
          - wait for at least 3 tuners to come up after start (useful after reboot)
          - generate graphs of size 1400x1000 (default)
+         - use all tuners found in parallel (default)
         
         Example 2 (take a single snapshot of existing data):
-        CableLoadMonitor -g 27500 1800 -w 1500 -h 800
+        CableLoadMonitor -g 27500 1800 -w 1500 -h 800 -t /tmp
          - extract a snapshot of 1800 secs length ending 27500 secs in the past
          - generate graph of size 1500x800
+         - write graph to /tmp
 
 - diagnosis
 

@@ -19,7 +19,7 @@ func setup( \
     system("rm $0_$$.awk")
 
     # take care of shell expansion (if security is an issue)
-    setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`hostname`", "$R_")
+    setup_lib($#, "awk|" CLARGS, $$, "`pwd`", "`cat /etc/hostname`", "$R_")
     PRP(CLARGS "\n")
 
     # required if Sundtek hardware is in use as we install with '-service' option
@@ -40,14 +40,14 @@ func setup( \
     RRDBASE_HISTSIZE = 60 * 60 * 24 * 7         # defaults to 1 week
 
     # default RRDGRAPH
-    RRDGRAPH_NAME = INSTPATH "CableLoadMonitor"
     RRDGRAPH_EXT = ".png"
-    RRDGRAPH_TMP = RRDGRAPH_NAME RRDGRAPH_EXT "_"
     RRDGRAPH_WIDTH = 1400
     RRDGRAPH_HEIGHT = 1000
     RRDGRAPH_Y_UPPER_LIMIT = 40                 # scale Y axis to this minimum
-    RRDGRAPH_UPDATE_RATE = 120                  # lower graph update rate to this value for higher hist sizes
-    BWIDTH_SNAPSHOT = RRDGRAPH_NAME "_bwidth.txt"
+    RRDGRAPH_UPDATE_RATE = 300                  # lower the graph update rate for higher hist sizes
+#    RRDGRAPH_NAME = set elsewhere
+#    RRDGRAPH_TMP = set elsewhere
+#    BWIDTH_SNAPSHOT = set elsewhere
 
     # feel free to add other history sizes (aka generated graphs) as well
     RRDGRAPHS[RRDGRAPHS_CNT++] = 60 * 60            " |1h"
@@ -260,17 +260,23 @@ func assemble_rrdgraphs_cmd( \
 }
 
 func scan_down_channels( \
-    retry, resume, passc, bwidth, RRDUPD_STR, BWIDTH_SUM, a, i, k, kk, line)
+    tuner, tuners, retry, resume, passc, bwidth, RRDUPD_STR, BWIDTH_SUM, a, i, k, kk, line)
 {
     PRF(strftime("%T: "))
     PRP("--------------------------------------------------------------------------------")
 
+    if (sequential) {
+        tuners = 1    
+    } else {
+        tuners = tuners_found
+    }
+    tuner = 0
     retry = 0
-    for (i = 0; i < FREQ_CNT; i += CARDS) {
+    for (i = 0; i < FREQ_CNT; i += tuners) {
         if (!retry) {
             resume = 0
         }
-        for (k = resume; k < CARDS; ++k) {
+        for (k = resume; k < tuners; ++k) {
             if (i + k == FREQ_CNT) break
 
             #
@@ -283,47 +289,51 @@ func scan_down_channels( \
             # the arbitrarily chosen stop value of 80000 appears to be high enough to even 
             # handle high bandwidths with enough accuracy.
             #
-            CMD = "{ " LD_PL "timeout 10 dvbtune -c " k " -f " FREQ[i + k] * FREQ_FACTOR " -s 6952 -qam 256; " \
-                       LD_PL "timeout 1 dvbsnoop -adapter " k " -s bandwidth 8190 -n 80000" "; } 2>&1" 
+            CMD = "{ " LD_PL "timeout 10 dvbtune -c " tuner " -f " FREQ[i + k] * FREQ_FACTOR " -s 6952 -qam 256; " \
+                       LD_PL "timeout 1 dvbsnoop -adapter " tuner " -s bandwidth 8190 -n 80000" "; } 2>&1" 
+            tuner = ++tuner % tuners_found
             PRP(CMD)
             print CMD |& SH[k]
             close(SH[k], "to")
         }
-        for (k = resume; k < CARDS; ++k) {
+        for (k = resume; k < tuners; ++k) {
             if (i + k == FREQ_CNT) break
             passc = 0
             while (SH[k] |& getline line > 0) {
+                if (verbose) {
+                    PRP(line)
+                }
                 if (match(line, "Bit error rate: ([0-9]+)$", a) \
-                 && (a[1] += 0) \
+                 && (a[1] + 0) \
                  && !dvbtune_ignerrs) {
                     PR("\n\n" a[0] ", please check your cables or use '-i' option\n")
                     break
                 } else if (match(line, "^FE_STATUS: FE_HAS_SIGNAL FE_HAS_LOCK FE_HAS_CARRIER FE_HAS_VITERBI FE_HAS_SYNC")) {
-                    ++passc
+                    passc += 2
                 } else if (match(line, "^## PID:.*Avrg: +([^ ]+) ", a)) {
                     PRFP(line "   ")
                     bwidth = a[1]
-                    ++passc
+                    passc += 3
                 }
             }
             close(SH[k])
 
-## simulate DVB failure
+## simulate tuner failure
 #if (++CNT == 2) {
 ##    PR(" <== TRIGGERED FAIL ON [" CNT "]")
 #    passc = 0
 #}
-            if (passc != 3) {
+            if (passc != 7) {
 
                 #
                 # UPDATE as of 2019_08_03:
-                #  - in the event of dvbsnoop failure: no longer exit but retry instead
-                #  - you may want to reload your DVB drivers if these crashed
+                #  - in the event of dvbsnoop failure: no longer exit but try to recover instead
+                #  - you may want to reload your DVB drivers in a proper way to overcome the failure
                 #
-                PRF("\ndvbtune/dvbsnoop fails for [ " FREQ[i + k] " ] [ passc == " passc " ]")
+                PRF("\ndvbtune/dvbsnoop fails for [ " FREQ[i + k] " ] [ 7 != " passc " ]")
                 if (failreboot) {
                     PR(", rebooting...")
-                    PRF("waiting for grace period 30s to expire: ")
+                    PRF("waiting for 30s grace period to expire: ")
                     for (kk = 0; kk < 30; ++kk) {
                         ex("sleep 1")
                         PRF(".")
@@ -336,14 +346,14 @@ func scan_down_channels( \
                 #
                 # place your specific driver reload code here
                 #
-                ex("systemctl stop sundtek; sleep 5; systemctl start sundtek; sleep " 5 + 10 * CARDS, 1)
+                ex("systemctl stop sundtek; sleep 5; systemctl start sundtek; sleep " 5 + 10 * tuners_found, 1)
 
-                # recover loops
-                for (kk = k + 1; kk < CARDS; ++kk) {
+                # recoil looping params for resume
+                for (kk = k + 1; kk < tuners; ++kk) {
                     if (i + kk == FREQ_CNT) break
                     close(SH[kk])
                 }
-                i -= CARDS
+                i -= tuners
                 resume = k
                 ++retry
                 break
@@ -366,7 +376,7 @@ func scan_down_channels( \
                 ex(RRDUPD_STR, 2)
             } 
         }
-        if (k == CARDS) {
+        if (k == tuners) {
             retry = 0
         }
     }
@@ -396,7 +406,7 @@ func watch_the_scenery( \
     RETRIES = 30
 
     #
-    # some inital setup specific to certain devices. this may fail 
+    # some inital setup code specific to certain devices. this may fail 
     # on one or another device. don't care.
     #
 
@@ -407,7 +417,7 @@ func watch_the_scenery( \
     #
     ex("echo 0 | sudo tee -a /sys/module/dvb_core/parameters/dvb_powerdown_on_sleep", 0)
 
-    if (!CARDS_CFG) ++CARDS_CFG
+    if (!tuners_cfg) ++tuners_cfg
     retry = RETRIES
     while (1) {
 
@@ -421,38 +431,38 @@ func watch_the_scenery( \
                 break
             }
         }
-        CARDS = i
-        if (!CARDS) {
+        tuners_found = i
+        if (!tuners_found) {
             PR("no Sundtek card(s) found, trying others (untested)")
             for (i = 0; i < 20; ++i) {
                 if (ex("dvb-fe-tool -a " i " -d DVBC/ANNEX_A", 0, "(not found)")) {
                     break
                 }
             }
-            CARDS = i
+            tuners_found = i
         }
-        if (CARDS >= CARDS_CFG) {
+        if (tuners_found >= tuners_cfg) {
             break
         } else if (!retry--) {
             exit_("retries exhausted, tuner count configured not satisfiable")
         } else {
-            if (last != CARDS) {
+            if (last != tuners_found) {
                 # increment to give the remaining a chance
-                last = CARDS
+                last = tuners_found
                 retry = RETRIES
             }
-            PR("tuner count configured not yet reached [ " CARDS " < " CARDS_CFG " ], retrying [ " retry " ]")
+            PR("tuner count configured not yet reached [ " tuners_found " < " tuners_cfg " ], retrying [ " retry " ]")
         }
         ex("sleep 1")
     }
-    PR("found " CARDS " DVBC card(s)")
-    for (i = 0; i < CARDS; ++i) {
+    PR("found " tuners_found " tuner(s)")
+    for (i = 0; i < tuners_found; ++i) {
         ex("ln -nfs /bin/sh " INSTPATH "sh" i)
         SH[i] = INSTPATH "sh" i
     }
     while (1) {
-        generate_rrdgraphs()
         scan_down_channels()
+        generate_rrdgraphs()
     }
 }
 
@@ -482,10 +492,12 @@ func usage( \
     PR(" - ignore bit errors reported by DVB driver")
     PR(" - wait for at least 3 tuners to come up after start (useful after reboot)")
     PR(" - generate graphs of size " RRDGRAPH_WIDTH "x" RRDGRAPH_HEIGHT " (default)")
+    PR(" - use all tuners found in parallel" " (default)")
     PR("\nExample 2 (take a single snapshot of existing data):")
-    PR(PRGBNAME " -g 27500 1800 -w 1500 -h 800")
+    PR(PRGBNAME " -g 27500 1800 -w 1500 -h 800 -t /tmp")
     PR(" - extract a snapshot of 1800 secs length ending 27500 secs in the past")
     PR(" - generate graph of size 1500x800")
+    PR(" - write graph to /tmp")
 }
 
 func process_cmdline( \
@@ -514,6 +526,9 @@ func process_cmdline( \
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-r [0-9]+$")) { # recording history size (in secs)
             rrdbase_histsize = _ARGV[i + 1]
             ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-t /[/a-zA-Z]+$")) { # set destination directory for graph(s)
+            target_dir = _ARGV[i + 1]
+            ++i
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w [0-9]+$")) { # width of generated graph(s)
             rrdgraph_width = _ARGV[i + 1]
             ++i
@@ -528,21 +543,36 @@ func process_cmdline( \
             display_mode = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-n [0-9]+$")) { # wait for this many tuners minimum to come up
-            CARDS_CFG = _ARGV[i + 1]
-            if (!CARDS_CFG) {
+            tuners_cfg = _ARGV[i + 1]
+            if (!tuners_cfg) {
                 exit_("need more tuners")
             }
             ++i
         } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
             ++dvbtune_ignerrs
-        } else if (match(_ARGV[i], "-failreboot$")) { # failing dvbsnoop triggers a reboot
+        } else if (match(_ARGV[i], "-sequential$")) { # force sequential tuning in multi tuner mode
+            ++sequential
+        } else if (match(_ARGV[i], "-failreboot$")) { # trigger a reboot on dvbsnoop failure
             ++failreboot
+        } else if (match(_ARGV[i], "-v$")) { # increase logging verbosity
+            ++verbose
         } else {
             usage()
             ++ERR; exit
         }
     }
     retrieve_down_freqs(freq_list) 
+    if (target_dir) {
+        target_dir = gensub("^(.*[^/])/*$", "\\\1/", "g", target_dir)
+        if (ex("mkdir -p " target_dir, 2, "^(.*)$")) {
+            exit_("can't create target directory")
+        }
+    } else {
+        target_dir = INSTPATH
+    }
+    RRDGRAPH_NAME = target_dir "CableLoadMonitor"
+    RRDGRAPH_TMP = RRDGRAPH_NAME RRDGRAPH_EXT "_"
+    BWIDTH_SNAPSHOT = RRDGRAPH_NAME "_bwidth.txt"
     if (rrdgraph_histend) {
         PR("point in time where the generated graph ends: " strftime("%y-%m-%d %T", rrdgraph_histend))
         PR("time span covered by the generated graph: " rrdgraph_length "s")
@@ -561,9 +591,11 @@ func process_cmdline( \
         int(rrdbase_histsize % (60 * 60     ) / (60          )) " minute(s) "   \
         int(rrdbase_histsize % (60          )                 ) " second(s) "   \
     )
-    if (dvbtune_ignerrs) PR("dvbtune bit errors: " "ignored")
+    PR("use multiple tuners: " (sequential ? "sequentially" : "parallel") " (if applicable)")
+    if (dvbtune_ignerrs) PR("dvb bit errors reported: " "ignored")
     PR("dvb failure recovery method: " (failreboot ? "reboot" : "retry"))
     PR("display mode: " (display_mode ? "accumulated" : "standard"))
+    PR("graph destination dir: " target_dir)
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()
     rrd_exists = ex("ls " RRDBASE_FILE, 0 ,"^(" RRDBASE_FILE ")$")

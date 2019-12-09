@@ -1,5 +1,5 @@
-- protect against multiple calls
-- protect against -g DB clash
+- protection against multiple calls
+- protection against -g DB clash
 - ~~auto pass remover~~
 - ~~hint echo 0 | sudo dvb-fe-tool -d DVBC/ANNEX_A~~
   ~~  - #49~~
@@ -16,6 +16,7 @@
 - ~~graph generation as needed (not after each cycle)~~
 - always record 32 channels to avoid DB rebuild in most cases
 - ~~HW autodetect~~
-- supervise dispatch loop with watchdog
-- graph dst dir configurable
+- superwise dispatch loop with watchdog
+- ~~graph dst dir configurable~~
 - ~~option to trigger reboot on dvbsnoop failure~~
+- ~~option to force sequential tuning in multi tuner mode~~
