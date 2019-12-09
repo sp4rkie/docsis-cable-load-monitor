@@ -137,7 +137,7 @@ Sample graph showing display mode 1 (30min recording):
           -f                    - force scan of TC4400 for DS channel frequencies
           -c [0-9]+             - create a RRD base with given RRA steps (in secs)
           -r [0-9]+             - recording history size (in secs)
-          -t /[/a-zA-Z_-]+      - set destination directory for graph(s)
+          -t /[0-9a-zA-Z/_-]+   - set destination directory for graph(s)
           -w [0-9]+             - width of generated graph(s)
           -h [0-9]+             - height of generated graph(s)
           -g [0-9]+ [0-9]+      - generate a snapshot with stop at and length (in secs)

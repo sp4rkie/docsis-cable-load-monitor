@@ -617,7 +617,7 @@ func setup_lib(argc, argv, procnum, pwd, hostname, is_android, \
     PROTOCOL = PRGNAME ".log"
     CURRPATH = pwd "/"
     HOSTNAME = hostname
-    INSTPATH = match(INSTPATH, "^(./|)$") ? CURRPATH : INSTPATH
+    INSTPATH = match(INSTPATH, "^(./|)$") ? CURRPATH : match(INSTPATH, "^/") ? INSTPATH : CURRPATH INSTPATH
 
     # charset to build 2 digit prefix, currently base 62
     LKP = "0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ"

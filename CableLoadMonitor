@@ -198,7 +198,7 @@ func assemble_rrdcreate_cmd( \
     RRDB_CCMD_NEW = CMD
 }
 
-func assemble_rrdgraph_cmd(end, size, \
+func assemble_rrdgraph_cmd(end, size, postfx, \
     group, GROUPS, CMD, i, k)
 {
     # use the first version if interested in average and min too
@@ -206,7 +206,7 @@ func assemble_rrdgraph_cmd(end, size, \
     GROUPS = "MAX:max:LAST:last"
     split(GROUPS, group, ":")
 
-    CMD = "rrdtool graph " RRDGRAPH_TMP " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT * FREQ_FACTOR        " \\\\\n" \
+    CMD = "rrdtool graph " RRDGRAPH_TMP postfx " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT * FREQ_FACTOR        " \\\\\n" \
           "--title=\"Graph generated at \`date\`\""                                                    " \\\\\n" \
           "-w " rrdgraph_width " -h " rrdgraph_height                                                  " \\\\\n" \
           "--end " end " --start end-" size "s"                                                        " \\\\\n" 
@@ -460,7 +460,7 @@ func watch_the_scenery( \
         }
         ex("sleep 1")
     }
-    PR("found " tuners_found " tuner(s)")
+    PR("tuner(s) found: " tuners_found)
     for (i = 0; i < tuners_found; ++i) {
         ex("ln -nfs /bin/sh " INSTPATH "sh" i)
         SH[i] = INSTPATH "sh" i
@@ -531,7 +531,7 @@ func process_cmdline( \
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-r [0-9]+$")) { # recording history size (in secs)
             rrdbase_histsize = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-t /[/a-zA-Z_-]+$")) { # set destination directory for graph(s)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-t /[0-9a-zA-Z/_-]+$")) { # set destination directory for graph(s)
             target_dir = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w [0-9]+$")) { # width of generated graph(s)
@@ -578,15 +578,17 @@ func process_cmdline( \
     RRDGRAPH_NAME = target_dir "CableLoadMonitor"
     RRDGRAPH_TMP = RRDGRAPH_NAME RRDGRAPH_EXT "_"
     BWIDTH_SNAPSHOT = RRDGRAPH_NAME "_bwidth.txt"
+    PR("graph display mode: " (display_mode ? "accumulated" : "standard"))
+    PR("graph destination dir: " target_dir)
     if (rrdgraph_histend) {
         PR("point in time where the generated graph ends: " strftime("%y-%m-%d %T", rrdgraph_histend))
         PR("time span covered by the generated graph: " rrdgraph_length "s")
         PR("graph is written to: " RRDGRAPH_NAME RRDGRAPH_EXT)
-        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length), 256, "^(.*ERROR.*)$", a)) {
+        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length, "_"), 256, "^(.*ERROR.*)$", a)) {
             PR(a[1])
             exit_("rrdtool graph fails")
         }
-        ex("mv " RRDGRAPH_TMP " " RRDGRAPH_NAME RRDGRAPH_EXT)
+        ex("mv " RRDGRAPH_TMP "_" " " RRDGRAPH_NAME RRDGRAPH_EXT)
         exit
     }
     PR("recording RRA step size: " rrdbase_rrasteps " seconds")
@@ -599,8 +601,6 @@ func process_cmdline( \
     PR("use multiple tuners: " (sequential ? "sequentially" : "parallel") " (if applicable)")
     if (dvbtune_ignerrs) PR("dvb bit errors reported: " "ignored")
     PR("dvb failure recovery method: " (failreboot ? "reboot" : "retry"))
-    PR("display mode: " (display_mode ? "accumulated" : "standard"))
-    PR("graph destination dir: " target_dir)
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()
     rrd_exists = ex("ls " RRDBASE_FILE, 0 ,"^(" RRDBASE_FILE ")$")
