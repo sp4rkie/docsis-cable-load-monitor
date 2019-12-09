@@ -8,6 +8,11 @@
 # https://github.com/sp4rkie/docsis-cable-load-monitor
 #
 
+echo "$@" | egrep -q -e '-g|-h( [^0-9]|[^ ]|$)' || {
+exec 8> /tmp/CableLoadMonitor.lck
+flock -w0 8 || { echo another instance is already active; exit 255; }
+}
+
 cat > $0_$$.awk << !
 
 func setup( \
@@ -526,7 +531,7 @@ func process_cmdline( \
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-r [0-9]+$")) { # recording history size (in secs)
             rrdbase_histsize = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-t /[/a-zA-Z]+$")) { # set destination directory for graph(s)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-t /[/a-zA-Z_-]+$")) { # set destination directory for graph(s)
             target_dir = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-w [0-9]+$")) { # width of generated graph(s)
@@ -577,7 +582,7 @@ func process_cmdline( \
         PR("point in time where the generated graph ends: " strftime("%y-%m-%d %T", rrdgraph_histend))
         PR("time span covered by the generated graph: " rrdgraph_length "s")
         PR("graph is written to: " RRDGRAPH_NAME RRDGRAPH_EXT)
-        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length), 0, "^(.*ERROR.*)$", a)) {
+        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length), 256, "^(.*ERROR.*)$", a)) {
             PR(a[1])
             exit_("rrdtool graph fails")
         }
@@ -619,8 +624,8 @@ func process_cmdline( \
         if (rrd_exists) {
             backup_time = strftime(".%Y-%m-%d_%T")
             PR("backing up old RRD data")
-            ex("cp -va " RRDBASE_FILE " " RRDBASE_FILE backup_time)
-            ex("cp -va " CONF_FILE " " CONF_FILE backup_time)
+            ex("mv -v " RRDBASE_FILE " " RRDBASE_FILE backup_time, 2)
+            ex("mv -v " CONF_FILE " " CONF_FILE backup_time, 2)
         }
         print FREQ_SPEC_NEW > CONF_FILE
         print RRDB_CCMD_NEW > CONF_FILE

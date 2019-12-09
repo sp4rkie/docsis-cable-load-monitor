@@ -5,12 +5,14 @@
 cat > $0_$$.awk << !
 BEGIN {
     system("rm $0_$$.awk")
-    CMD = "/proc/$$/stat"; getline < CMD; close(CMD)
-    match("$0", "/([^/]+)$", a)
-    CMD = "/run/" a[1] "d.pid"; print "-" \$5 > CMD; close(CMD)
-    HOSTNAME = "`cat /etc/hostname`"
+    PIDFILE = "/run/" gensub("^.*/([^/]+)$", "\\\1", "g", "$0") "d.pid"
+    print "-" PROCINFO["pgrpid"] > PIDFILE; close(PIDFILE)
 
     while (1) {
+
+        #
+        # configure this as needed
+        #
         CMD = "/root/bin/CableLoadMonitor -d 1 -i -w 1500 -h 200 2>&1"
         print "CMD: <" CMD ">"
         while (CMD | getline line > 0) {
