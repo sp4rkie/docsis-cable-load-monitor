@@ -194,7 +194,7 @@ func assemble_rrdcreate_cmd( \
         CMD = CMD sprintf("DS:f%02d:GAUGE:120:U:U", i)     " \\\\\n"
     }
     CMD = CMD sprintf("DS:sum:GAUGE:120:U:U")              " \\\\\n"
-    CMD = CMD sprintf("RRA:AVERAGE:0.1:" rrdbase_rrasteps ":" rrdbase_histsize / rrdbase_rrasteps)
+    CMD = CMD sprintf("RRA:AVERAGE:0.1:" rrdbase_rrasteps ":" int(rrdbase_histsize / rrdbase_rrasteps))
     RRDB_CCMD_NEW = CMD
 }
 
@@ -567,6 +567,27 @@ func process_cmdline( \
         }
     }
     retrieve_down_freqs(freq_list) 
+    rrd_exists = ex("ls " RRDBASE_FILE, 0 ,"^(" RRDBASE_FILE ")$")
+    if (!rrd_exists) {
+        PR("the RRD does not exist")
+        renew_rrd_base += 2
+    }
+    if (split(FREQ_SPEC_CFG, a, ":") != split(FREQ_SPEC_NEW, a, ":")) {
+        if (FREQ_SPEC_CFG) PR("count of monitored channel frequencies did change")
+        renew_rrd_base += 2
+    } else if (FREQ_SPEC_CFG != FREQ_SPEC_NEW) {
+        if (FREQ_SPEC_CFG) PR("values of monitored channel frequencies did change")
+        renew_rrd_base += 1
+    }
+    if (RRA_STEPS_CFG != rrdbase_rrasteps \
+     || HIST_SIZE_CFG != rrdbase_histsize) {
+        if (RRA_STEPS_CFG) PR("RRD base recording parameters did change")
+        renew_rrd_base += 2
+    }
+    if (rrd_exists && renew_rrd_base && rrdgraph_histend) {
+        PR("can't extract graph: parameters currently in use don't match the data base")
+        exit_("did you issue -g together with either -f, -c, -r ?")
+    }
     if (target_dir) {
         target_dir = gensub("^(.*[^/])/*$", "\\\1/", "g", target_dir)
         if (ex("mkdir -p " target_dir, 2, "^(.*)$")) {
@@ -584,7 +605,7 @@ func process_cmdline( \
         PR("point in time where the generated graph ends: " strftime("%y-%m-%d %T", rrdgraph_histend))
         PR("time span covered by the generated graph: " rrdgraph_length "s")
         PR("graph is written to: " RRDGRAPH_NAME RRDGRAPH_EXT)
-        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length, "_"), 256, "^(.*ERROR.*)$", a)) {
+        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length, "_"), verbose ? 0 : 256, "^(.*ERROR.*)$", a)) {
             PR(a[1])
             exit_("rrdtool graph fails")
         }
@@ -603,23 +624,6 @@ func process_cmdline( \
     PR("dvb failure recovery method: " (failreboot ? "reboot" : "retry"))
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()
-    rrd_exists = ex("ls " RRDBASE_FILE, 0 ,"^(" RRDBASE_FILE ")$")
-    if (!rrd_exists) {
-        PR("the RRD does not exist")
-        renew_rrd_base += 2
-    }
-    if (split(FREQ_SPEC_CFG, a, ":") != split(FREQ_SPEC_NEW, a, ":")) {
-        if (FREQ_SPEC_CFG) PR("count of monitored channel frequencies did change")
-        renew_rrd_base += 2
-    } else if (FREQ_SPEC_CFG != FREQ_SPEC_NEW) {
-        if (FREQ_SPEC_CFG) PR("values of monitored channel frequencies did change")
-        renew_rrd_base += 1
-    }
-    if (RRA_STEPS_CFG != rrdbase_rrasteps \
-     || HIST_SIZE_CFG != rrdbase_histsize) {
-        if (RRA_STEPS_CFG) PR("RRD base recording parameters did change")
-        renew_rrd_base += 2
-    }
     if (renew_rrd_base) {
         if (rrd_exists) {
             backup_time = strftime(".%Y-%m-%d_%T")
