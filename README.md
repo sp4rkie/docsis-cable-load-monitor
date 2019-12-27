@@ -50,10 +50,20 @@ The program then will start to meter the cable load. The raw results are shown o
 
 An example console output for 16 downstream channel frequencies could look like this
 
-        reading downstream channel frequencies from cache
+        evaluating given downstream channel frequencies
         downstream channel frequencies now in use: [ 16 ] 546 530 538 554 562 570 578 586 594 602 610 618 626 634 642 650
-        point in time where the displayed graph ends: now
-        time span covered by the displayed graph: 840s
+        graph display mode: accumulated
+        graph destination dir: /root/bin/
+        recording RRA step size: 10 seconds
+        recording RRA history size: 7 day(s) 0 hour(s) 0 minute(s) 0 second(s) 
+        use multiple tuners: parallel (if applicable)
+        dvb bit errors reported: ignored
+        dvb failure recovery method: retry
+        generating graph for:   1h recording length, size 1500x200 pixels
+        generating graph for:   6h recording length, size 1500x200 pixels
+        generating graph for:   1d recording length, size 1500x200 pixels
+        generating graph for:   7d recording length, size 1500x200 pixels
+        tuner(s) found: 2
 
         [...]
         14:42:20:   4967 11105  3123  7030  2538   264  1519   746     2   109     3    82   110     7   873   124  32602
@@ -101,9 +111,20 @@ An example console output for 16 downstream channel frequencies could look like 
         14:56:26:   7939  2262  2315  2416   121    90  1098   463   102    32    75    77    25     5     9     4  17033
         [...]
 
-The lines start with the time of measurement followed by 16 values representing the cable load (in kbit/s) for each down channel. The last value is the overall sum. 
-Ideally we would take a snapshot of all 16 values at the same time. Since we can receive only one frequency at a given time we collect the values sequentially.
+The lines start with the time of measurement followed by 16 values representing the cable load (in kbit/s) for
+each down channel. The last value is the overall sum. Ideally we would take a snapshot of all 16 values at the
+same time. Since we can receive only one frequency at a given time we collect the values sequentially.
 For 16 channels this typically takes about 25s what seems to be acceptable.
+
+UPDATE as of Dec 6, 2019:
+
+We now also support multi tuner configurations. Allowing all tuners found in the system to be used in parallel per default.
+This substantially speeds up the overall time needed for one scan cycle to complete.
+
+Apart from that we have seen broken hardware is out there wreaking havoc after some thousands of scan cycles. Probably
+because ordinary DVB-C design is not meant be be used for continued frequency changes. That's why there now also exists 
+an option to force multiple tuners being used in a sequential manner. In the hope this may distribute the load sufficiently
+among all tuners to work without deficiencies.
 
 - graphic support
 
