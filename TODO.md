@@ -18,3 +18,4 @@
 - ~~graph dst dir configurable~~
 - ~~option to trigger reboot on dvbsnoop failure~~
 - ~~option to force sequential tuning in multi tuner mode~~
+- consider modulation profile (QAM256/QAM64) in frequ list
