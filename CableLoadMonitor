@@ -120,14 +120,19 @@ func exit_(msg \
 }
 
 func set_freqs(str, \
-    i, a)
+    i, a, b)
 {
-    if (!match(str, "^[0-9]+(:[0-9]+)*$")) {
+    if (!match(str, "^[0-9]+(/[0-9]+)?(:[0-9]+(/[0-9]+)?)*$")) {
         return 0
     }
     split(str, a, ":")
+    FREQ_CNT = 0
     for (i = 1; a[i]; ++i) {
-        FREQ[FREQ_CNT++] = a[i]
+        split(a[i], b, "/")
+        FREQ[FREQ_CNT] = b[1]
+        # set default to QAM256 for backward compatibility
+        MODP[FREQ[FREQ_CNT]] = b[2] ? b[2] : "256"
+        ++FREQ_CNT
     }
     return 1
 }
@@ -159,9 +164,12 @@ func retrieve_down_freqs(freqs, \
             }
         }
         close(LYNX, "to")
+        FREQ_CNT = 0
         while (LYNX |& getline line > 0) {
-            if (match(line, "Locked +SC-QAM +Downstream +Bonded +([0-9]+) ", a)) {
-                FREQ[FREQ_CNT++] = a[1] / FREQ_FACTOR
+            if (match(line, "Locked +SC-QAM +Downstream +Bonded +([0-9]+) .* +QAM([0-9]+) +[0-9]+ +[0-9]+ +[0-9]+$", a)) {
+                FREQ[FREQ_CNT] = a[1] / FREQ_FACTOR
+                MODP[FREQ[FREQ_CNT]] = a[2]
+                ++FREQ_CNT
             }
         }
         close(LYNX)
@@ -179,9 +187,10 @@ func retrieve_down_freqs(freqs, \
     }
     PRF("[ " FREQ_CNT " ] ")
     for (i = 0; i < FREQ_CNT; ++i) {
-        PRF(FREQ[i] " ")
+        if (!(i % 7)) PR("")
+        PRF("%-11s", FREQ[i] "/" "QAM" MODP[FREQ[i]])
         BWIDTH_OF[i] = "na"
-        FREQ_SPEC_NEW = FREQ_SPEC_NEW (FREQ_SPEC_NEW ? ":" : "") FREQ[i]
+        FREQ_SPEC_NEW = FREQ_SPEC_NEW (FREQ_SPEC_NEW ? ":" : "") FREQ[i] "/" MODP[FREQ[i]]
     }
     PR("")
 }
@@ -294,7 +303,7 @@ func scan_down_channels( \
             # the arbitrarily chosen stop value of 80000 appears to be high enough to even 
             # handle high bandwidths with enough accuracy.
             #
-            CMD = "{ " LD_PL "timeout 10 dvbtune -c " tuner " -f " FREQ[i + k] * FREQ_FACTOR " -s 6952 -qam 256; " \
+            CMD = "{ " LD_PL "timeout 10 dvbtune -c " tuner " -f " FREQ[i + k] * FREQ_FACTOR " -s 6952 -qam " MODP[FREQ[i + k]] "; " \
                        LD_PL "timeout 1 dvbsnoop -adapter " tuner " -s bandwidth 8190 -n 80000" "; } 2>&1" 
             tuner = ++tuner % tuners_found
             PRP(CMD)
@@ -520,7 +529,7 @@ func process_cmdline( \
         if (match(_ARGV[i] _ARGV[i + 1], "-h$")) { # print this help and exit
             usage()
             exit
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f [0-9]+(:[0-9]+)*$")) { # specify downstream (DS) channel frequencies (in MHz)
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-f [0-9]+(/[0-9]+)?(:[0-9]+(/[0-9]+)?)*$")) { # specify downstream (DS) channel frequencies (in MHz)
             freq_list = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i], "-f$")) { # force scan of TC4400 for DS channel frequencies
@@ -628,8 +637,8 @@ func process_cmdline( \
         if (rrd_exists) {
             backup_time = strftime(".%Y-%m-%d_%T")
             PR("backing up old RRD data")
-            ex("mv -v " RRDBASE_FILE " " RRDBASE_FILE backup_time, 2)
-            ex("mv -v " CONF_FILE " " CONF_FILE backup_time, 2)
+            ex("cp -a " RRDBASE_FILE " " RRDBASE_FILE backup_time, 2)
+            ex("cp -a " CONF_FILE " " CONF_FILE backup_time, 2)
         }
         print FREQ_SPEC_NEW > CONF_FILE
         print RRDB_CCMD_NEW > CONF_FILE

@@ -154,7 +154,7 @@ Sample graph showing display mode 1 (30min recording):
 
         Usage: CableLoadMonitor
           -h                    - print this help and exit
-          -f [0-9]+(:[0-9]+)*   - specify downstream (DS) channel frequencies (in MHz)
+          -f [0-9]+(/[0-9]+)?(:[0-9]+(/[0-9]+)?)* - specify downstream (DS) channel frequencies (in MHz)
           -f                    - force scan of TC4400 for DS channel frequencies
           -c [0-9]+             - create a RRD base with given RRA steps (in secs)
           -r [0-9]+             - recording history size (in secs)
