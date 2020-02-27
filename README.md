@@ -154,7 +154,8 @@ Sample graph showing display mode 1 (30min recording):
 
         Usage: CableLoadMonitor
           -h                    - print this help and exit
-          -f [0-9]+(/[0-9]+)?(:[0-9]+(/[0-9]+)?)* - specify downstream (DS) channel frequencies (in MHz)
+          -f [0-9]+(/[0-9]+)?(:[0-9]+(/[0-9]+)?)*
+                                - specify downstream (DS) channel frequencies (in MHz)
           -f                    - force scan of TC4400 for DS channel frequencies
           -c [0-9]+             - create a RRD base with given RRA steps (in secs)
           -r [0-9]+             - recording history size (in secs)
@@ -164,6 +165,7 @@ Sample graph showing display mode 1 (30min recording):
           -g [0-9]+ [0-9]+      - generate a snapshot with stop at and length (in secs)
           -d [01]               - display mode (0 == standard, 1 == accumulated)
           -n [0-9]+             - wait for this many tuners minimum to come up
+          -m [0-9]+             - use this many tuners maximum
           -i                    - ignore errors reported by dvbtune
           -sequential           - force sequential tuning in multi tuner mode
           -failreboot           - trigger a reboot on dvbsnoop failure
@@ -176,10 +178,11 @@ Sample graph showing display mode 1 (30min recording):
           -h 1000      
         
         Example 1 (continuously record new data):
-        CableLoadMonitor -d 1 -r 3600 -f 626:634 -i -n 3
+        CableLoadMonitor -d 1 -r 3600 -f 626:634/64:642 -i -n 3
          - use display mode 1 (accumulated)
          - keep 3600 secs of data
-         - scan 626 MHz and 634 MHz downstream channel frequencies
+         - scan 626 MHz, 634 MHz and 642 MHz downstream channel frequencies
+         - use QAM64 modulation profile for 634 MHz and QAM256 (the default) otherwise
          - ignore bit errors reported by DVB driver
          - wait for at least 3 tuners to come up after start (useful after reboot)
          - generate graphs of size 1400x1000 (default)

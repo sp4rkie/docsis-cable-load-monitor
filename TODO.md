@@ -19,4 +19,4 @@
 - ~~option to trigger reboot on dvbsnoop failure~~
 - ~~option to force sequential tuning in multi tuner mode~~
 - ~~multi modulation profile support~~
-- option to delimit max. count of used tuners
+- ~~option to delimit max. count of used tuners~~

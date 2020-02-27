@@ -282,7 +282,7 @@ func scan_down_channels( \
     if (sequential) {
         tuners = 1    
     } else {
-        tuners = tuners_found
+        tuners = tuners_inuse
     }
     tuner = 0
     retry = 0
@@ -305,7 +305,7 @@ func scan_down_channels( \
             #
             CMD = "{ " LD_PL "timeout 10 dvbtune -c " tuner " -f " FREQ[i + k] * FREQ_FACTOR " -s 6952 -qam " MODP[FREQ[i + k]] "; " \
                        LD_PL "timeout 1 dvbsnoop -adapter " tuner " -s bandwidth 8190 -n 80000" "; } 2>&1" 
-            tuner = ++tuner % tuners_found
+            tuner = ++tuner % tuners_inuse
             PRP(CMD)
             print CMD |& SH[k]
             close(SH[k], "to")
@@ -360,7 +360,7 @@ func scan_down_channels( \
                 #
                 # place your specific driver reload code here
                 #
-                ex("systemctl stop sundtek; sleep 5; systemctl start sundtek; sleep " 5 + 10 * tuners_found, 1)
+                ex("systemctl stop sundtek; sleep 5; systemctl start sundtek; sleep " 5 + 10 * tuners_inuse, 1)
 
                 # recoil looping params for resume
                 for (kk = k + 1; kk < tuners; ++kk) {
@@ -431,7 +431,10 @@ func watch_the_scenery( \
     #
     ex("echo 0 | sudo tee -a /sys/module/dvb_core/parameters/dvb_powerdown_on_sleep", 0)
 
-    if (!tuners_cfg) ++tuners_cfg
+    if (!tuners_min) ++tuners_min
+    if (!tuners_max) tuners_max = 256
+    # clip the minimum to the maximum
+    tuners_min = min(tuners_min, tuners_max)
     retry = RETRIES
     while (1) {
 
@@ -445,32 +448,35 @@ func watch_the_scenery( \
                 break
             }
         }
-        tuners_found = i
-        if (!tuners_found) {
+        tuners_inuse = i
+        if (!tuners_inuse) {
             PR("no Sundtek card(s) found, trying others (untested)")
             for (i = 0; i < 20; ++i) {
                 if (ex("dvb-fe-tool -a " i " -d DVBC/ANNEX_A", 0, "(not found)")) {
                     break
                 }
             }
-            tuners_found = i
+            tuners_inuse = i
         }
-        if (tuners_found >= tuners_cfg) {
+        if (tuners_inuse >= tuners_min) {
             break
         } else if (!retry--) {
             exit_("retries exhausted, tuner count configured not satisfiable")
         } else {
-            if (last != tuners_found) {
+            if (last != tuners_inuse) {
                 # increment to give the remaining a chance
-                last = tuners_found
+                last = tuners_inuse
                 retry = RETRIES
             }
-            PR("tuner count configured not yet reached [ " tuners_found " < " tuners_cfg " ], retrying [ " retry " ]")
+            PR("tuner count configured not yet reached [ " tuners_inuse " < " tuners_min " ], retrying [ " retry " ]")
         }
         ex("sleep 1")
     }
-    PR("tuner(s) found: " tuners_found)
-    for (i = 0; i < tuners_found; ++i) {
+    PRF("tuner(s) found: " tuners_inuse)
+    # clip the amount of tuners found to the max
+    tuners_inuse = min(tuners_inuse, tuners_max)
+    PR(", using thereof: " tuners_inuse)
+    for (i = 0; i < tuners_inuse; ++i) {
         ex("ln -nfs /bin/sh " INSTPATH "sh" i)
         SH[i] = INSTPATH "sh" i
     }
@@ -487,7 +493,11 @@ func usage( \
     while ((line = ex_line("cat " PRGNAME)) != -1) {
         if (locked) {
             if (match(line, "match[^,]+, \"(.+)\"[^\"]+# (.*)$", a)) {
-                PR(sprintf("  %-21s - %s", gensub("\\\\$", "", "g", a[1]), a[2]))
+                PRF(sprintf("  %-21s", gensub("\\\\$", "", "g", a[1])))
+                if (length(gensub("\\\\$", "", "g", a[1])) > 27) {
+                    PRF("\n  %-21s", "")
+                }
+                PR(sprintf(" - %s", a[2]))
             }
         } else {
             if (match(line, "^func process_cmdline")) ++locked
@@ -499,10 +509,12 @@ func usage( \
     PR("  -w " sprintf("%-10d", RRDGRAPH_WIDTH)                 )
     PR("  -h " sprintf("%-10d", RRDGRAPH_HEIGHT)                )
     PR("\nExample 1 (continuously record new data):")
-    PR(PRGBNAME " -d 1 -r 3600 -f 626:634 -i -n 3")
+    PR(PRGBNAME " -d 1 -r 3600 -f 626:634/64:642 -i -n 3")
     PR(" - use display mode 1 (accumulated)")
     PR(" - keep 3600 secs of data")
-    PR(" - scan 626 MHz and 634 MHz downstream channel frequencies")
+    PR(" - scan 626 MHz, 634 MHz and 642 MHz downstream channel frequencies")
+    PR(" - use QAM64 modulation profile for 634 MHz and QAM256 (the default) otherwise")
+
     PR(" - ignore bit errors reported by DVB driver")
     PR(" - wait for at least 3 tuners to come up after start (useful after reboot)")
     PR(" - generate graphs of size " RRDGRAPH_WIDTH "x" RRDGRAPH_HEIGHT " (default)")
@@ -557,9 +569,15 @@ func process_cmdline( \
             display_mode = _ARGV[i + 1]
             ++i
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-n [0-9]+$")) { # wait for this many tuners minimum to come up
-            tuners_cfg = _ARGV[i + 1]
-            if (!tuners_cfg) {
-                exit_("need more tuners")
+            tuners_min = _ARGV[i + 1]
+            if (!tuners_min) {
+                exit_("need more tuners minimum")
+            }
+            ++i
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-m [0-9]+$")) { # use this many tuners maximum
+            tuners_max = _ARGV[i + 1]
+            if (!tuners_max) {
+                exit_("need more tuners maximum")
             }
             ++i
         } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
@@ -628,7 +646,7 @@ func process_cmdline( \
         int(rrdbase_histsize % (60 * 60     ) / (60          )) " minute(s) "   \
         int(rrdbase_histsize % (60          )                 ) " second(s) "   \
     )
-    PR("use multiple tuners: " (sequential ? "sequentially" : "parallel") " (if applicable)")
+    PR("using multiple tuners: " (sequential ? "sequentially" : "in parallel") " (if applicable)")
     if (dvbtune_ignerrs) PR("dvb bit errors reported: " "ignored")
     PR("dvb failure recovery method: " (failreboot ? "reboot" : "retry"))
     assemble_rrdcreate_cmd() 
