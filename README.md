@@ -145,13 +145,16 @@ Sample graph showing a newer theme (24h recording):
 
 ![alt text](CableLoadMonitor_new.png "Title")
 
-Sample graph showing a newer theme (7d recording):
-
-![alt text](CableLoadMonitor_7d.png "Title")
-
 Sample graph showing display mode 1 (30min recording):
 
 ![alt text](CableLoadMonitor_dm1.png "Title")
+
+1h/ 6h/ 1d/ 7d arrangement:
+
+![alt text](CableLoadMonitor_1h.png "Title")
+![alt text](CableLoadMonitor_6h.png "Title")
+![alt text](CableLoadMonitor_1d.png "Title")
+![alt text](CableLoadMonitor_7d.png "Title")
 
 - command line options
 

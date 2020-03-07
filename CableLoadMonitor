@@ -130,7 +130,7 @@ func set_freqs(str, \
     for (i = 1; a[i]; ++i) {
         split(a[i], b, "/")
         FREQ[FREQ_CNT] = b[1]
-        # set default to QAM256 for backward compatibility
+        # set the default to QAM256 for backward compatibility
         MODP[FREQ[FREQ_CNT]] = b[2] ? b[2] : "256"
         ++FREQ_CNT
     }
@@ -473,7 +473,7 @@ func watch_the_scenery( \
         ex("sleep 1")
     }
     PRF("tuner(s) found: " tuners_inuse)
-    # clip the amount of tuners found to the max
+    # clip the amount of tuners in use to the max
     tuners_inuse = min(tuners_inuse, tuners_max)
     PR(", using thereof: " tuners_inuse)
     for (i = 0; i < tuners_inuse; ++i) {
@@ -505,16 +505,20 @@ func usage( \
     }
     PR("\nDefaults:")
     PR("  -c " sprintf("%-10d", RRDBASE_RRASTEPS) "   # 10 secs")
-    PR("  -r " sprintf("%-10d", RRDBASE_HISTSIZE) "   # 1 week" )
-    PR("  -w " sprintf("%-10d", RRDGRAPH_WIDTH)                 )
-    PR("  -h " sprintf("%-10d", RRDGRAPH_HEIGHT)                )
+    PR("  -r " sprintf("%-10d", RRDBASE_HISTSIZE) "   # 1 week")
+    PR("  -t " sprintf("%-10s", "\$PWD")          "   # write to current working directory")
+    PR("  -w " sprintf("%-10d", RRDGRAPH_WIDTH)   "   # graph width")
+    PR("  -h " sprintf("%-10d", RRDGRAPH_HEIGHT)  "   # graph height")
+    PR("  -d " sprintf("%-10d", 0)                "   # display mode standard")
+    PR("  -n " sprintf("%-10d", 1)                "   # wait for 1 tuner minimum to come up")
+    PR("  -m " sprintf("%-10d", 256)              "   # virtually don't limit the amount of tuners used")
+
     PR("\nExample 1 (continuously record new data):")
     PR(PRGBNAME " -d 1 -r 3600 -f 626:634/64:642 -i -n 3")
     PR(" - use display mode 1 (accumulated)")
     PR(" - keep 3600 secs of data")
     PR(" - scan 626 MHz, 634 MHz and 642 MHz downstream channel frequencies")
     PR(" - use QAM64 modulation profile for 634 MHz and QAM256 (the default) otherwise")
-
     PR(" - ignore bit errors reported by DVB driver")
     PR(" - wait for at least 3 tuners to come up after start (useful after reboot)")
     PR(" - generate graphs of size " RRDGRAPH_WIDTH "x" RRDGRAPH_HEIGHT " (default)")
