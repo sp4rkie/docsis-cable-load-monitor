@@ -51,19 +51,22 @@ The program then will start to meter the cable load. The raw results are shown o
 An example console output for 16 downstream channel frequencies could look like this
 
         evaluating given downstream channel frequencies
-        downstream channel frequencies now in use: [ 16 ] 546 530 538 554 562 570 578 586 594 602 610 618 626 634 642 650
+        downstream channel frequencies now in use: [ 16 ]
+        546/QAM256 530/QAM256 538/QAM256 554/QAM256 562/QAM256 570/QAM256 578/QAM256
+        586/QAM256 594/QAM256 602/QAM256 610/QAM256 618/QAM256 626/QAM256 634/QAM256
+        642/QAM256 650/QAM256
         graph display mode: accumulated
         graph destination dir: /root/bin/
         recording RRA step size: 10 seconds
         recording RRA history size: 7 day(s) 0 hour(s) 0 minute(s) 0 second(s) 
-        use multiple tuners: parallel (if applicable)
+        use multiple tuners: in parallel (if applicable)
         dvb bit errors reported: ignored
         dvb failure recovery method: retry
         generating graph for:   1h recording length, size 1500x200 pixels
         generating graph for:   6h recording length, size 1500x200 pixels
         generating graph for:   1d recording length, size 1500x200 pixels
         generating graph for:   7d recording length, size 1500x200 pixels
-        tuner(s) found: 2
+        tuner(s) found: 2, using thereof: 2
 
         [...]
         14:42:20:   4967 11105  3123  7030  2538   264  1519   746     2   109     3    82   110     7   873   124  32602
