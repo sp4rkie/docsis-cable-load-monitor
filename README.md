@@ -177,8 +177,12 @@ Sample graph showing display mode 1 (30min recording):
         Defaults:
           -c 10           # 10 secs
           -r 604800       # 1 week
-          -w 1400      
-          -h 1000      
+          -t $PWD         # write to current working directory
+          -w 1400         # graph width
+          -h 1000         # graph height
+          -d 0            # display mode standard
+          -n 1            # wait for 1 tuner minimum to come up
+          -m 256          # virtually don't limit the amount of tuners used
         
         Example 1 (continuously record new data):
         CableLoadMonitor -d 1 -r 3600 -f 626:634/64:642 -i -n 3
