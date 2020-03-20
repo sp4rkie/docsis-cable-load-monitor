@@ -523,7 +523,8 @@ func usage( \
     PR(" - wait for at least 3 tuners to come up after start (useful after reboot)")
     PR(" - generate graphs of size " RRDGRAPH_WIDTH "x" RRDGRAPH_HEIGHT " (default)")
     PR(" - use all tuners found in parallel" " (default)")
-    PR("\nExample 2 (take a single snapshot of existing data):")
+
+    PR("\nExample 2 (zoom into and display a single snapshot of existing data):")
     PR(PRGBNAME " -g 27500 1800 -w 1500 -h 800 -t /tmp")
     PR(" - extract a snapshot of 1800 secs length ending 27500 secs in the past")
     PR(" - generate graph of size 1500x800")

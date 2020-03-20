@@ -198,15 +198,50 @@ Sample graph showing display mode 1 (30min recording):
          - generate graphs of size 1400x1000 (default)
          - use all tuners found in parallel (default)
         
-        Example 2 (take a single snapshot of existing data):
+        Example 2 (zoom into and display a single snapshot of existing data):
         CableLoadMonitor -g 27500 1800 -w 1500 -h 800 -t /tmp
          - extract a snapshot of 1800 secs length ending 27500 secs in the past
          - generate graph of size 1500x800
          - write graph to /tmp
 
+files
+-----
+
+- some files are created in the same directory where the tool resides. You may change the directory by means of the '-t' option (see above).
+- graphs
+
+    the program continuously generates graphs depending on the chosen recording length
+
+        CableLoadMonitor_1d.png
+        CableLoadMonitor_1h.png
+        CableLoadMonitor_6h.png
+        CableLoadMonitor_7d.png
+
+    you can easily change this behavior with a small modification (please have a look at the configuration hints in the tool).
+
+- round robin data base
+
+    when initially called with new parameters a round robin data base file
+
+        CableLoadMonitor.rrd
+
+    is created to hold all the measurement values. For further information please have a look at [About RRDtool](https://oss.oetiker.ch/rrdtool/)
+
+- configuration
+
+    when initially called with new parameters a configuration file 
+
+        CableLoadMonitor.cfg
+
+    is created to permanently save meta data like frequencies, modulation profiles et al. This helps to identify the units of saved values in the round robin data base. If parameters are changed incompatibly to the current data base a backup of `CableLoadMonitor.cfg` and `CableLoadMonitor.rdd` is created automatically before the new parameters come into effect. So you may revive older setups after stopping the tool as long as you copy back both `CableLoadMonitor.cfg` and `CableLoadMonitor.rdd` consistently.
+
 - diagnosis
 
-The program logs all activity to file `CableLoadMonitor.log`. This will be the first place to look at if something went wrong.
+    the program logs all activity to the file 
+
+        CableLoadMonitor.log
+        
+    this will be the first place to look at if something went wrong.
 
 systemd integration
 -------------------
