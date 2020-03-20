@@ -212,12 +212,12 @@ files
 
     the program continuously generates graphs depending on the chosen recording length
 
-        CableLoadMonitor_1d.png
         CableLoadMonitor_1h.png
         CableLoadMonitor_6h.png
+        CableLoadMonitor_1d.png
         CableLoadMonitor_7d.png
 
-    you can easily change this behavior with a small modification (please have a look at the configuration hints in the tool).
+    you can easily change this behavior with a small modification. Please be aware that this could void your warranty:-) For further information please have a look at the configuration hints in the tool.
 
 - round robin data base
 
