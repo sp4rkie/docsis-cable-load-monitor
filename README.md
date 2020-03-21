@@ -141,15 +141,15 @@ The alphanumeric example from above looks like this:
 
 The metered values start moderately at about 20Mbit/s. At 14:50 a download with 120Mbit/s initiates spanning a period of about 2 minutes. The values peak in 140Mbit/s reflecting the sum of 20Mbit/s + 120Mbit/s.
 
-Sample graph showing a newer theme (24h recording):
+Example showing a graph with newer theme (24h recording):
 
 ![alt text](CableLoadMonitor_new.png "Title")
 
-Sample graph showing display mode 1 (30min recording):
+Example showing a graph in display mode 1 (30min recording):
 
 ![alt text](CableLoadMonitor_dm1.png "Title")
 
-1h/ 6h/ 1d/ 7d arrangement:
+Typical view of graphs spanning 1 hour, 6 hours, 1 day, 7 days:
 
 ![alt text](CableLoadMonitor_1h.png "Title")
 ![alt text](CableLoadMonitor_6h.png "Title")
@@ -207,7 +207,7 @@ Sample graph showing display mode 1 (30min recording):
 files
 -----
 
-- some files are created in the same directory where the tool resides. You may change the directory by means of the '-t' option (see above).
+- some files are created in the directory where the tool resides. You may change the directory by means of the '-t' option (see above).
 - graphs
 
     the program continuously generates graphs depending on the chosen recording length
@@ -233,7 +233,7 @@ files
 
         CableLoadMonitor.cfg
 
-    is created to permanently save meta data like frequencies, modulation profiles et al. This helps to identify the units of saved values in the round robin data base. If parameters are changed incompatibly to the current data base a backup of `CableLoadMonitor.cfg` and `CableLoadMonitor.rdd` is created automatically before the new parameters come into effect. So you may revive older setups after stopping the tool as long as you copy back both `CableLoadMonitor.cfg` and `CableLoadMonitor.rdd` consistently.
+    is created to permanently save meta data like frequencies, modulation profiles et al. This helps to identify the units of saved values in the round robin data base. If parameters are changed incompatibly to the current data base a backup of `CableLoadMonitor.cfg` and `CableLoadMonitor.rdd` is created automatically before the new parameters come into effect. So you may revive previous setups after stopping the tool. As long as you copy back older versions of both `CableLoadMonitor.cfg` and `CableLoadMonitor.rdd` consistently.
 
 - diagnosis
 
