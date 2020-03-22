@@ -166,7 +166,7 @@ func retrieve_down_freqs(freqs, \
         close(LYNX, "to")
         FREQ_CNT = 0
         while (LYNX |& getline line > 0) {
-            if (match(line, "Locked +SC-QAM +Downstream +Bonded +([0-9]+) .* +QAM([0-9]+) +[0-9]+ +[0-9]+ +[0-9]+$", a)) {
+            if (match(line, "Locked +SC-QAM .* +Bonded +([0-9]+) .* +QAM([0-9]+) +[0-9]+ +[0-9]+ +[0-9]+$", a)) {
                 FREQ[FREQ_CNT] = a[1] / FREQ_FACTOR
                 MODP[FREQ[FREQ_CNT]] = a[2]
                 ++FREQ_CNT
