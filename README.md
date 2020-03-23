@@ -175,6 +175,7 @@ Typical view of graphs spanning 1 hour, 6 hours, 1 day, 7 days:
           -i                    - ignore errors reported by dvbtune
           -sequential           - force sequential tuning in multi tuner mode
           -failreboot           - trigger a reboot on dvbsnoop failure
+          -fixbrokenHW          - try to workaround some broken hardware
           -v                    - increase logging verbosity
         
         Defaults:
