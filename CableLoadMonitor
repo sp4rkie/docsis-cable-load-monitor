@@ -304,6 +304,7 @@ func scan_down_channels( \
             # handle high bandwidths with enough accuracy.
             #
             CMD = "{ " LD_PL "timeout 10 dvbtune -c " tuner " -f " FREQ[i + k] * FREQ_FACTOR " -s 6952 -qam " MODP[FREQ[i + k]] "; " \
+                       (fixbrokenHW ? "sleep 1; " : "") \
                        LD_PL "timeout 1 dvbsnoop -adapter " tuner " -s bandwidth 8190 -n 80000" "; } 2>&1" 
             if (fixbrokenHW && !i) {
                 ex(CMD)
