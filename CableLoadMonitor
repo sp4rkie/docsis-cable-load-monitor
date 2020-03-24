@@ -207,7 +207,7 @@ func assemble_rrdcreate_cmd( \
     RRDB_CCMD_NEW = CMD
 }
 
-func assemble_rrdgraph_cmd(end, size, postfx, \
+func assemble_rrdgraph_cmd(end, size, postfx, head, \
     group, GROUPS, CMD, i, k)
 {
     # use the first version if interested in average and min too
@@ -215,8 +215,12 @@ func assemble_rrdgraph_cmd(end, size, postfx, \
     GROUPS = "MAX:max:LAST:last"
     split(GROUPS, group, ":")
 
-    CMD = "rrdtool graph " RRDGRAPH_TMP postfx " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT * FREQ_FACTOR        " \\\\\n" \
-          "--title=\"Graph generated at \`date\`\""                                                    " \\\\\n" \
+    CMD = "rrdtool graph " RRDGRAPH_TMP postfx " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT * FREQ_FACTOR " \\\\\n" \
+          "--title=\"DOCSIS Cable Load Monitor (c)" \
+                   " / graph creation date: \`date\`" \
+                   " / displayed recording length: " head \
+                   (end == "now" ? "" : " / ending at: " "\`date -d @" end "\`") \
+                   "\""                                                                                " \\\\\n" \
           "-w " rrdgraph_width " -h " rrdgraph_height                                                  " \\\\\n" \
           "--end " end " --start end-" size "s"                                                        " \\\\\n" 
     CMD = CMD                                                                                          " \\\\\n"
@@ -267,7 +271,7 @@ func assemble_rrdgraphs_cmd( \
         if (a[1] > rrdbase_histsize) {
             break
         }
-        RRDGRAPH_CMD[i] = assemble_rrdgraph_cmd("now", gensub(" +", "", "g", a[1]))
+        RRDGRAPH_CMD[i] = assemble_rrdgraph_cmd("now", gensub(" +", "", "g", a[1]), "", a[2])
         RRDGRAPH_FILE[i] = RRDGRAPH_NAME "_" a[2] RRDGRAPH_EXT
         PR("generating graph for: " sprintf("%4s", a[2]) " recording length, size " rrdgraph_width "x" rrdgraph_height " pixels")
     }
@@ -336,7 +340,7 @@ func scan_down_channels( \
             }
             close(SH[k])
 
-## simulate tuner failure
+## simulate DVB-C tuner failure
 #if (++CNT == 2) {
 ##    PR(" <== TRIGGERED FAIL ON [" CNT "]")
 #    passc = 0
@@ -346,7 +350,7 @@ func scan_down_channels( \
                 #
                 # UPDATE as of 2019_08_03:
                 #  - in the event of dvbsnoop failure: no longer exit but try to recover instead
-                #  - you may want to reload your DVB drivers in a proper way to overcome the failure
+                #  - you may want to reload your DVB-C drivers in a proper way to overcome the failure
                 #
                 PRF("\ndvbtune/dvbsnoop fails for [ " FREQ[i + k] " ] [ 7 != " passc " ]")
                 if (failreboot) {
@@ -465,19 +469,19 @@ func watch_the_scenery( \
         if (tuners_inuse >= tuners_min) {
             break
         } else if (!retry--) {
-            exit_("retries exhausted, tuner count configured not satisfiable")
+            exit_("retries exhausted, DVB-C tuner count configured not satisfiable")
         } else {
             if (last != tuners_inuse) {
                 # increment to give the remaining a chance
                 last = tuners_inuse
                 retry = RETRIES
             }
-            PR("tuner count configured not yet reached [ " tuners_inuse " < " tuners_min " ], retrying [ " retry " ]")
+            PR("DVB-C tuner count configured not yet reached [ " tuners_inuse " < " tuners_min " ], retrying [ " retry " ]")
         }
         ex("sleep 1")
     }
-    PRF("tuner(s) found: " tuners_inuse)
-    # clip the amount of tuners in use to the max
+    PRF("DVB-C tuner(s) found: " tuners_inuse)
+    # clip the amount of DVB-C tuners in use to the max
     tuners_inuse = min(tuners_inuse, tuners_max)
     PR(", using thereof: " tuners_inuse)
     for (i = 0; i < tuners_inuse; ++i) {
@@ -536,8 +540,8 @@ func usage( \
     PR("  -w " sprintf("%-10d", RRDGRAPH_WIDTH)   "   # graph width")
     PR("  -h " sprintf("%-10d", RRDGRAPH_HEIGHT)  "   # graph height")
     PR("  -d " sprintf("%-10d", 0)                "   # display mode standard")
-    PR("  -n " sprintf("%-10d", 1)                "   # wait for 1 tuner minimum to come up")
-    PR("  -m " sprintf("%-10d", 256)              "   # virtually don't limit the amount of tuners used")
+    PR("  -n " sprintf("%-10d", 1)                "   # wait for 1 DVB-C tuner minimum to come up")
+    PR("  -m " sprintf("%-10d", 256)              "   # virtually don't limit the amount of DVB-C tuners used")
 
     PR("\nExample 1 (continuously record new data):")
     PR(PRGBNAME " -d 1 -r 3600 -f 626:634/64:642 -i -n 3")
@@ -545,10 +549,10 @@ func usage( \
     PR(" - keep 3600 secs of data")
     PR(" - scan 626 MHz, 634 MHz and 642 MHz downstream channel frequencies")
     PR(" - use QAM64 modulation profile for 634 MHz and QAM256 (the default) otherwise")
-    PR(" - ignore bit errors reported by DVB driver")
-    PR(" - wait for at least 3 tuners to come up after start (useful after reboot)")
+    PR(" - ignore bit errors reported by DVB-C driver")
+    PR(" - wait for at least 3 DVB-C tuners to come up after start (useful after reboot)")
     PR(" - generate graphs of size " RRDGRAPH_WIDTH "x" RRDGRAPH_HEIGHT " (default)")
-    PR(" - use all tuners found in parallel" " (default)")
+    PR(" - use all DVB-C tuners found in parallel" " (default)")
 
     PR("\nExample 2 (zoom into and display a single snapshot of existing data):")
     PR(PRGBNAME " -g 27500 1800 -w 1500 -h 800 -t /tmp")
@@ -595,29 +599,32 @@ func process_cmdline( \
         } else if (match(_ARGV[i] " " _ARGV[i + 1] " " _ARGV[i + 2], "-g [0-9]+ [0-9]+$")) { # generate a snapshot with stop at and length (in secs)
             rrdgraph_histend = strftime("%s") - _ARGV[i + 1]
             rrdgraph_length = _ARGV[i + 2]
+            if (rrdgraph_histend <= 0) {
+                exit_("invalid stop time")
+            }
             i += 2
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-d [01]$")) { # display mode (0 == standard, 1 == accumulated)
             display_mode = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-n [0-9]+$")) { # wait for this many tuners minimum to come up
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-n [0-9]+$")) { # wait for this many DVB-C tuners minimum to come up
             tuners_min = _ARGV[i + 1]
             if (!tuners_min) {
-                exit_("need more tuners minimum")
+                exit_("need more DVB-C tuners minimum")
             }
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-m [0-9]+$")) { # use this many tuners maximum
+        } else if (match(_ARGV[i] " " _ARGV[i + 1], "-m [0-9]+$")) { # use this many DVB-C tuners maximum
             tuners_max = _ARGV[i + 1]
             if (!tuners_max) {
-                exit_("need more tuners maximum")
+                exit_("need more DVB-C tuners maximum")
             }
             ++i
         } else if (match(_ARGV[i], "-i$")) { # ignore errors reported by dvbtune
             ++dvbtune_ignerrs
-        } else if (match(_ARGV[i], "-sequential$")) { # force sequential tuning in multi tuner mode
+        } else if (match(_ARGV[i], "-sequential$")) { # force sequential tuning in multi DVB-C tuner mode
             ++sequential
         } else if (match(_ARGV[i], "-failreboot$")) { # trigger a reboot on dvbsnoop failure
             ++failreboot
-        } else if (match(_ARGV[i], "-fixbrokenHW$")) { # try to workaround some broken hardware
+        } else if (match(_ARGV[i], "-fixbrokenHW$")) { # try to workaround some broken DVB-C tuner hardware
             ++fixbrokenHW
         } else if (match(_ARGV[i], "-v$")) { # increase logging verbosity
             ++verbose
@@ -666,7 +673,7 @@ func process_cmdline( \
         PR("point in time where the generated graph ends: " strftime("%y-%m-%d %T", rrdgraph_histend))
         PR("time span covered by the generated graph: " rrdgraph_length "s")
         PR("graph is written to: " RRDGRAPH_NAME RRDGRAPH_EXT)
-        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length, "_"), verbose ? 0 : 256, "^(.*ERROR.*)$", a)) {
+        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length, "_", rrdgraph_length "s"), verbose ? 0 : 256, "^(.*ERROR.*)$", a)) {
             PR(a[1])
             exit_("rrdtool graph fails")
         }
@@ -680,9 +687,9 @@ func process_cmdline( \
         int(rrdbase_histsize % (60 * 60     ) / (60          )) " minute(s) "   \
         int(rrdbase_histsize % (60          )                 ) " second(s) "   \
     )
-    PR("using multiple tuners: " (sequential ? "sequentially" : "in parallel") " (if applicable)")
-    if (dvbtune_ignerrs) PR("dvb bit errors reported: " "ignored")
-    PR("dvb failure recovery method: " (failreboot ? "reboot" : "retry"))
+    PR("using multiple DVB-C tuners: " (sequential ? "sequentially" : "in parallel") " (if applicable)")
+    if (dvbtune_ignerrs) PR("DVB-C bit errors reported: " "ignored")
+    PR("DVB-C failure recovery method: " (failreboot ? "reboot" : "retry"))
     if (fixbrokenHW) PR("how to handle common hardware bugs: " "workaround")
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()

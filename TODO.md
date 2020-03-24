@@ -6,7 +6,7 @@
 - ~~mv replaces cp to backup rdd~~
 - ~~awklib fix and()~~
 - ~~timestamps to *log~~
-- header to grph 1d 7d 7d 
+- ~~header to grph 1d 7d 7d~~
 - cond sundtek specific stuff LD_PL and such
 - ~~parallelized multi tuner support~~
 - ~~systemd integration~~

@@ -170,12 +170,12 @@ Typical view of graphs spanning 1 hour, 6 hours, 1 day, 7 days:
           -h [0-9]+             - height of generated graph(s)
           -g [0-9]+ [0-9]+      - generate a snapshot with stop at and length (in secs)
           -d [01]               - display mode (0 == standard, 1 == accumulated)
-          -n [0-9]+             - wait for this many tuners minimum to come up
-          -m [0-9]+             - use this many tuners maximum
+          -n [0-9]+             - wait for this many DVB-C tuners minimum to come up
+          -m [0-9]+             - use this many DVB-C tuners maximum
           -i                    - ignore errors reported by dvbtune
-          -sequential           - force sequential tuning in multi tuner mode
+          -sequential           - force sequential tuning in multi DVB-C tuner mode
           -failreboot           - trigger a reboot on dvbsnoop failure
-          -fixbrokenHW          - try to workaround some broken hardware
+          -fixbrokenHW          - try to workaround some broken DVB-C tuner hardware
           -v                    - increase logging verbosity
         
         Defaults:
@@ -185,8 +185,8 @@ Typical view of graphs spanning 1 hour, 6 hours, 1 day, 7 days:
           -w 1400         # graph width
           -h 1000         # graph height
           -d 0            # display mode standard
-          -n 1            # wait for 1 tuner minimum to come up
-          -m 256          # virtually don't limit the amount of tuners used
+          -n 1            # wait for 1 DVB-C tuner minimum to come up
+          -m 256          # virtually don't limit the amount of DVB-C tuners used
         
         Example 1 (continuously record new data):
         CableLoadMonitor -d 1 -r 3600 -f 626:634/64:642 -i -n 3
@@ -194,10 +194,10 @@ Typical view of graphs spanning 1 hour, 6 hours, 1 day, 7 days:
          - keep 3600 secs of data
          - scan 626 MHz, 634 MHz and 642 MHz downstream channel frequencies
          - use QAM64 modulation profile for 634 MHz and QAM256 (the default) otherwise
-         - ignore bit errors reported by DVB driver
-         - wait for at least 3 tuners to come up after start (useful after reboot)
+         - ignore bit errors reported by DVB-C driver
+         - wait for at least 3 DVB-C tuners to come up after start (useful after reboot)
          - generate graphs of size 1400x1000 (default)
-         - use all tuners found in parallel (default)
+         - use all DVB-C tuners found in parallel (default)
         
         Example 2 (zoom into and display a single snapshot of existing data):
         CableLoadMonitor -g 27500 1800 -w 1500 -h 800 -t /tmp
