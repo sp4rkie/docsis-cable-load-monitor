@@ -364,7 +364,7 @@ func scan_down_channels( \
                 #
                 # place your specific driver reload code here
                 #
-                ex("systemctl stop sundtek; sleep 5; systemctl start sundtek; sleep " 5 + 10 * tuners_inuse, 1)
+                ex("sudo systemctl stop sundtek; sleep 5; sudo systemctl start sundtek; sleep " 5 + 10 * tuners_inuse, 1)
 
                 # recoil looping params for resume
                 for (kk = k + 1; kk < tuners; ++kk) {
@@ -454,7 +454,7 @@ func watch_the_scenery( \
         }
         tuners_inuse = i
         if (!tuners_inuse) {
-            PR("no Sundtek card(s) found, trying others (untested)")
+            PR("no Sundtek card(s) found, trying others (unsupported)")
             for (i = 0; i < 20; ++i) {
                 if (ex("dvb-fe-tool -a " i " -d DVBC/ANNEX_A", 0, "(not found)")) {
                     break
@@ -487,6 +487,18 @@ func watch_the_scenery( \
     while (1) {
         scan_down_channels()
         generate_rrdgraphs()
+    }
+}
+
+func check_prerequisites( \
+    i, a)
+{
+    PRERQCMDS = "wget gawk lynx dvbsnoop dvbtune dvb-fe-tool rrdtool sudo"
+    split(PRERQCMDS, a)
+    for (i = 1; a[i]; ++i) {
+        if (!ex("which " a[i], 0, "(.)")) {
+            exit_("can't find executable for [ " a[i] " ], please install this first")
+        }
     }
 }
 
@@ -604,6 +616,7 @@ func process_cmdline( \
             ++ERR; exit
         }
     }
+    check_prerequisites()
     retrieve_down_freqs(freq_list) 
     rrd_exists = ex("ls " RRDBASE_FILE, 0 ,"^(" RRDBASE_FILE ")$")
     if (!rrd_exists) {
@@ -660,14 +673,17 @@ func process_cmdline( \
     PR("using multiple tuners: " (sequential ? "sequentially" : "in parallel") " (if applicable)")
     if (dvbtune_ignerrs) PR("dvb bit errors reported: " "ignored")
     PR("dvb failure recovery method: " (failreboot ? "reboot" : "retry"))
+    if (fixbrokenHW) PR("how to handle common hardware bugs: " "workaround")
     assemble_rrdcreate_cmd() 
     assemble_rrdgraphs_cmd()
     if (renew_rrd_base) {
         if (rrd_exists) {
             backup_time = strftime(".%Y-%m-%d_%T")
             PR("backing up old RRD data")
-            ex("cp -a " RRDBASE_FILE " " RRDBASE_FILE backup_time, 2)
-            ex("cp -a " CONF_FILE " " CONF_FILE backup_time, 2)
+            if (ex("cp -a " RRDBASE_FILE " " RRDBASE_FILE backup_time, 2, "(.)") \
+             || ex("cp -a " CONF_FILE " " CONF_FILE backup_time, 2, "(.)")) {
+                exit_("failed to create backup")
+            }
         }
         print FREQ_SPEC_NEW > CONF_FILE
         print RRDB_CCMD_NEW > CONF_FILE
