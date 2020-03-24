@@ -481,7 +481,17 @@ func watch_the_scenery( \
     tuners_inuse = min(tuners_inuse, tuners_max)
     PR(", using thereof: " tuners_inuse)
     for (i = 0; i < tuners_inuse; ++i) {
-        ex("ln -nfs /bin/sh " INSTPATH "sh" i)
+
+        #
+        # some filesystems don't support softlinks
+        #
+        if (ex("ln -nfs /bin/sh " INSTPATH "sh" i, 2, "(.)")) {
+            PR("trying to cp instead")
+            if (ex("rm -f " INSTPATH "sh" i "; cp /bin/sh " INSTPATH "sh" i, 3, "(.)")) {
+                exit_("neither ln nor cp works")
+            }
+            PR("worked")
+        }
         SH[i] = INSTPATH "sh" i
     }
     while (1) {
