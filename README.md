@@ -168,7 +168,7 @@ Typical view of graphs spanning 1 hour, 6 hours, 1 day, 7 days:
           -t /[0-9a-zA-Z/_-]+   - set destination directory for graph(s)
           -w [0-9]+             - width of generated graph(s)
           -h [0-9]+             - height of generated graph(s)
-          -g [0-9]+ [0-9]+      - generate a snapshot with stop at and length (in secs)
+          -g [0-9]+ [0-9]+      - generate a snapshot with start at and length (in secs)
           -d [01]               - display mode (0 == standard, 1 == accumulated)
           -n [0-9]+             - wait for this many DVB-C tuners minimum to come up
           -m [0-9]+             - use this many DVB-C tuners maximum
@@ -201,7 +201,7 @@ Typical view of graphs spanning 1 hour, 6 hours, 1 day, 7 days:
         
         Example 2 (zoom into and display a single snapshot of existing data):
         CableLoadMonitor -g 27500 1800 -w 1500 -h 800 -t /tmp
-         - extract a snapshot of 1800 secs length ending 27500 secs in the past
+         - extract a snapshot of 1800 secs length starting 27500 secs in the past
          - generate graph of size 1500x800
          - write graph to /tmp
 

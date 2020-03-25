@@ -207,22 +207,24 @@ func assemble_rrdcreate_cmd( \
     RRDB_CCMD_NEW = CMD
 }
 
-func assemble_rrdgraph_cmd(end, size, postfx, head, \
-    start, group, GROUPS, CMD, i, k)
+func assemble_rrdgraph_cmd(start, size, postfx, head, \
+    startstr, group, GROUPS, CMD, i, k)
 {
     # use the first version if interested in average and min too
     GROUPS = "MAX:max:MIN:min:LAST:last:AVERAGE:avg"
     GROUPS = "MAX:max:LAST:last"
     split(GROUPS, group, ":")
-    if (end == "now") {
-        start = strftime("%s") - size
+    if (start == "now") {
+        end = "now"
+        # must calc header dynamically
+        startstr = "\`date -d -" size "sec\`"
     } else {
-        start = end - size
+        end = start + size
+        startstr = strftime("%a %b %e %H:%M:%S %Z %Y", start)
     }
-    start = strftime("%a %b %e %H:%M:%S %Z %Y", start)
     CMD = "rrdtool graph " RRDGRAPH_TMP postfx " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT * FREQ_FACTOR " \\\\\n" \
           "--title=\"DOCSIS Cable Load Monitor (c)" \
-                   " / graph starting point: " start \
+                   " / graph starting point: " startstr \
                    " / time span: " head (head == size "s" ? "" : " (" size "s)") \
                    "\""                                                                                " \\\\\n" \
           "-w " rrdgraph_width " -h " rrdgraph_height                                                  " \\\\\n" \
@@ -417,7 +419,7 @@ func generate_rrdgraphs( \
         if (i && RRDGRAPH_LUPD[i - 1] - RRDGRAPH_LUPD[i] < RRDGRAPH_UPDATE_RATE) {
             break
         }
-        if (ex(RRDGRAPH_CMD[i], 256, "^(.*ERROR.*)$", a)) {
+        if (ex(RRDGRAPH_CMD[i], verbose ? 0 : 256, "^(.*ERROR.*)$", a)) {
             PR(a[1])
             exit_("rrdtool graph fails")
         }
@@ -560,7 +562,7 @@ func usage( \
 
     PR("\nExample 2 (zoom into and display a single snapshot of existing data):")
     PR(PRGBNAME " -g 27500 1800 -w 1500 -h 800 -t /tmp")
-    PR(" - extract a snapshot of 1800 secs length ending 27500 secs in the past")
+    PR(" - extract a snapshot of 1800 secs length starting 27500 secs in the past")
     PR(" - generate graph of size 1500x800")
     PR(" - write graph to /tmp")
 }
@@ -600,11 +602,11 @@ func process_cmdline( \
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-h [0-9]+$")) { # height of generated graph(s)
             rrdgraph_height = _ARGV[i + 1]
             ++i
-        } else if (match(_ARGV[i] " " _ARGV[i + 1] " " _ARGV[i + 2], "-g [0-9]+ [0-9]+$")) { # generate a snapshot with stop at and length (in secs)
-            rrdgraph_histend = strftime("%s") - _ARGV[i + 1]
+        } else if (match(_ARGV[i] " " _ARGV[i + 1] " " _ARGV[i + 2], "-g [0-9]+ [0-9]+$")) { # generate a snapshot with start at and length (in secs)
+            rrdgraph_histstart = strftime("%s") - _ARGV[i + 1]
             rrdgraph_length = _ARGV[i + 2]
-            if (rrdgraph_histend <= 0) {
-                exit_("invalid stop time")
+            if (rrdgraph_histstart <= 0) {
+                exit_("invalid start time")
             }
             i += 2
         } else if (match(_ARGV[i] " " _ARGV[i + 1], "-d [01]$")) { # display mode (0 == standard, 1 == accumulated)
@@ -656,9 +658,9 @@ func process_cmdline( \
         if (RRA_STEPS_CFG) PR("RRD base recording parameters did change")
         renew_rrd_base += 2
     }
-    if (rrd_exists && renew_rrd_base && rrdgraph_histend) {
+    if (rrd_exists && renew_rrd_base && rrdgraph_histstart) {
         PR("can't extract graph: parameters currently in use don't match the data base")
-        exit_("did you issue -g together with either -f, -c, -r ?")
+        exit_("option -g may not be used together with either -f, -c, -r")
     }
     if (target_dir) {
         target_dir = gensub("^(.*[^/])/*$", "\\\1/", "g", target_dir)
@@ -673,11 +675,11 @@ func process_cmdline( \
     BWIDTH_SNAPSHOT = RRDGRAPH_NAME "_bwidth.txt"
     PR("graph display mode: " (display_mode ? "accumulated" : "standard"))
     PR("graph destination dir: " target_dir)
-    if (rrdgraph_histend) {
-        PR("point in time where the generated graph ends: " strftime("%y-%m-%d %T", rrdgraph_histend))
-        PR("time span covered by the generated graph: " rrdgraph_length "s")
+    if (rrdgraph_histstart) {
+        PR("point in time where the graph starts: " strftime("%y-%m-%d %T", rrdgraph_histstart))
+        PR("time span covered by the graph: " rrdgraph_length "s")
         PR("graph is written to: " RRDGRAPH_NAME RRDGRAPH_EXT)
-        if (ex(assemble_rrdgraph_cmd(rrdgraph_histend, rrdgraph_length, "_", rrdgraph_length "s"), verbose ? 0 : 256, "^(.*ERROR.*)$", a)) {
+        if (ex(assemble_rrdgraph_cmd(rrdgraph_histstart, rrdgraph_length, "_", rrdgraph_length "s"), verbose ? 0 : 256, "^(.*ERROR.*)$", a)) {
             PR(a[1])
             exit_("rrdtool graph fails")
         }
