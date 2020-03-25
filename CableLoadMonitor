@@ -208,7 +208,7 @@ func assemble_rrdcreate_cmd( \
 }
 
 func assemble_rrdgraph_cmd(start, size, postfx, head, \
-    startstr, group, GROUPS, CMD, i, k)
+    startstr, end, group, GROUPS, CMD, i, k)
 {
     # use the first version if interested in average and min too
     GROUPS = "MAX:max:MIN:min:LAST:last:AVERAGE:avg"
@@ -225,7 +225,7 @@ func assemble_rrdgraph_cmd(start, size, postfx, head, \
     CMD = "rrdtool graph " RRDGRAPH_TMP postfx " -a PNG -l 0 -u " RRDGRAPH_Y_UPPER_LIMIT * FREQ_FACTOR " \\\\\n" \
           "--title=\"DOCSIS Cable Load Monitor (c)" \
                    " / graph starting point: " startstr \
-                   " / time span: " head (head == size "s" ? "" : " (" size "s)") \
+                   " / covered time span: " head (head == size "s" ? "" : " (" size "s)") \
                    "\""                                                                                " \\\\\n" \
           "-w " rrdgraph_width " -h " rrdgraph_height                                                  " \\\\\n" \
           "--end " end " --start end-" size "s"                                                        " \\\\\n" 

@@ -145,15 +145,14 @@ Example showing a graph with newer theme (24h recording):
 
 ![alt text](CableLoadMonitor_new.png "Title")
 
-Example showing a graph in display mode 1 (30min recording):
-
-![alt text](CableLoadMonitor_dm1.png "Title")
-
 Typical view of graphs spanning 1 hour, 6 hours, 1 day, 7 days:
 
 ![alt text](CableLoadMonitor_1h.png "Title")
+
 ![alt text](CableLoadMonitor_6h.png "Title")
+
 ![alt text](CableLoadMonitor_1d.png "Title")
+
 ![alt text](CableLoadMonitor_7d.png "Title")
 
 - command line options
